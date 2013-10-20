@@ -6,7 +6,7 @@
 #include <ao/ao.h>
 #include <curl/curl.h>
 #include <pthread.h>
-#include <libavcodec/avcodec.h>
+#include <neaacdec.h>
 
 #define AUDIO_INBUF_SIZE 20480
 #define AUDIO_REFILL_THRESH 4096
@@ -51,6 +51,12 @@ typedef enum {
     plMP4
 } fm_player_mode;
 
+typedef struct {
+    unsigned char buf[AUDIO_INBUF_SIZE];
+    unsigned char *data;
+    int size;
+} aac_buffer_t;
+
 typedef struct fm_player {
     mpg123_handle *mh;
     ao_device *dev;
@@ -59,12 +65,10 @@ typedef struct fm_player {
     // the mode that dictates the stream format
     fm_player_mode mode;
 
-    // the more complicated avcodec data
-    AVCodec *codec;
-    AVCodecContext *context;
-    uint8_t inbuf[AUDIO_INBUF_SIZE + FF_INPUT_BUFFER_PADDING_SIZE];
-    AVPacket avpkt;
-    AVFrame *decoded_frame;
+    // faad configurations
+    NeAACDecHandle aach;
+    aac_buffer_t aacb;
+    int aac_inited;
 
     // for referring to some of the attributes in the playlist
     fm_playlist_t *playlist;

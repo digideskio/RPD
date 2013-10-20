@@ -38,12 +38,12 @@ static size_t download_callback(char *ptr, size_t size, size_t nmemb, void *user
                 mpg123_feed(pl->mh, (unsigned char*) ptr, bytes);
                 break;
             case plMP4:{
-                char *start = pl->avpkt.data + pl->avpkt.size;
-                if (start + bytes <= (char *) pl->inbuf + sizeof(pl->inbuf)) {
+                unsigned char *start = pl->aacb.data + pl->aacb.size;
+                if (start + bytes <= pl->aacb.buf + sizeof(pl->aacb.buf)) {
                     // just append it to the buf
-                    printf("Appending to avptk buffer\n");
+                    printf("Appending to aac buffer\n");
                     memcpy(start, ptr, bytes);
-                    pl->avpkt.size += bytes;
+                    pl->aacb.size += bytes;
                 } else {
                     printf("Buffer full. Cannot add to buffer anymore\n");
                 }
@@ -79,6 +79,7 @@ static void* play_thread(void *data)
     int err;
     off_t off;
     unsigned char* audio;
+    NeAACDecFrameInfo aacinfo;
     size_t size;
 
     fm_player_t *pl = (fm_player_t*) data;
@@ -121,28 +122,34 @@ static void* play_thread(void *data)
                 }
                 break;
             case plMP4: {
-                int got_frame = 0;
-                avcodec_get_frame_defaults(pl->decoded_frame);
+                if (!pl->aac_inited) {
+                    // first try to initialize the buffer using the 
+                    printf("Trying to init the decoder.\n");
+                    long unsigned int sample_rate; 
+                    unsigned char channels;
+                    int h = NeAACDecInit(pl->aach, pl->aacb.data, pl->aacb.size, &sample_rate, &channels);
+                    if (h >= 0) {
+                        printf("AAC Decoder initialized correctly\n");
+                        pl->aac_inited = 1;
+                        pl->aacb.data += h;
+                        pl->aacb.size -= h;
+                    }
+                }
 
-                int len = avcodec_decode_audio4(pl->context, pl->decoded_frame, &got_frame, &pl->avpkt);
-                if (len >= 0 && got_frame) {
-                    /* if a frame has been decoded, output it */
-                    int data_size = av_samples_get_buffer_size(NULL, pl->context->channels,
-                                                               pl->decoded_frame->nb_samples,
-                                                               pl->context->sample_fmt, 1);
-                    ao_play(pl->dev, (char *) pl->decoded_frame->data[0], data_size);
+                printf("Trying to decode a frame.\n");
+                if (pl->aac_inited && (audio = NeAACDecDecode(pl->aach, &aacinfo, pl->aacb.data, pl->aacb.size))) {
+                    // try to decode the frame
                     printf("Successfully played a frame for the audio!\n");
-                    pl->avpkt.size -= len;
-                    pl->avpkt.data += len;
-                    pl->avpkt.dts =
-                    pl->avpkt.pts = AV_NOPTS_VALUE;
-                    if (pl->inbuf + sizeof(pl->inbuf) - pl->avpkt.data < AUDIO_REFILL_THRESH) {
+                    ao_play(pl->dev, (char *) audio, aacinfo.bytesconsumed);
+                    pl->aacb.data += aacinfo.bytesconsumed;
+                    pl->aacb.size -= aacinfo.bytesconsumed;
+                    if (pl->aacb.buf + sizeof(pl->aacb.buf) - pl->aacb.data < AUDIO_REFILL_THRESH) {
                         /* Refill the input buffer, to avoid trying to decode
                          * incomplete frames. Instead of this, one could also use
                          * a parser, or use a proper container format through
                          * libavformat. */
-                        memmove(pl->inbuf, pl->avpkt.data, pl->avpkt.size);
-                        pl->avpkt.data = pl->inbuf;
+                        memmove(pl->aacb.buf, pl->aacb.data, pl->aacb.size);
+                        pl->aacb.data = pl->aacb.buf;
                     }
                 } else if (pthread_kill(pl->tid_dl, 0) == 0) {
                     pthread_mutex_lock(&pl->mutex_status);
@@ -215,15 +222,15 @@ int fm_player_open(fm_player_t *pl, fm_player_config_t *config, fm_playlist_t *p
     // wiring up the playlist
     pl->playlist = playlist;
 
-    // setting up the packet
-    av_init_packet(&pl->avpkt);
-    // wiring up the input buf
-    pl->avpkt.data = pl->inbuf;
-    if (!(pl->decoded_frame = avcodec_alloc_frame())) {
-        fprintf(stderr, "Could not allocate audio frame\n");
-        exit(1);
+    // setting up the aac decoder
+    pl->aach = NeAACDecOpen();
+    // get the current configuration
+    NeAACDecConfigurationPtr conf = NeAACDecGetCurrentConfiguration(pl->aach);
+    conf->defSampleRate = config->rate;
+    conf->defObjectType = LC;
+    if (!NeAACDecSetConfiguration(pl->aach, conf)) {
+        printf("Unable to set config for NeAAC\n");
     }
-
     return 0;
 }
 
@@ -245,6 +252,9 @@ void fm_player_close(fm_player_t *pl)
         fclose(pl->download.tmpstream);
         pl->download.tmpstream = NULL;
     }
+
+    // close the aac decoder
+    NeAACDecClose(pl->aach);
 }
 
 int fm_player_set_url(fm_player_t *pl, fm_song_t *song)
@@ -321,29 +331,11 @@ int fm_player_set_url(fm_player_t *pl, fm_song_t *song)
     } else if (strcmp(ext, ".m4a") == 0) {
         printf("mp4 determined\n");
         pl->mode = plMP4;
-        // initialize the m4a related avcodec details
-        /* find the mpeg audio decoder */
-        pl->codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
-        if (!pl->codec) {
-            fprintf(stderr, "Codec not found\n");
-            exit(1);
-        }
-        printf("try to alloc context\n");
-        pl->context = avcodec_alloc_context3(pl->codec);
-        printf("context set\n");
-        if (!pl->context) {
-            fprintf(stderr, "Could not allocate audio codec context\n");
-            exit(1);
-        }
-        /* open it */
-        printf("try to open codec\n");
-        if (avcodec_open2(pl->context, pl->codec, NULL) < 0) {
-            fprintf(stderr, "Could not open codec\n");
-            exit(1);
-        }
-        pl->avpkt.size = 0;
+        pl->aacb.size = 0;
         // reset all input buf
-        memset(pl->inbuf, 0, sizeof(pl->inbuf));
+        memset(pl->aacb.buf, 0, sizeof(pl->aacb.buf));
+        pl->aacb.data = pl->aacb.buf;
+        pl->aac_inited = 0;
     } else {
         printf("Unknown stream type\n");
         return -1;
@@ -440,7 +432,6 @@ void fm_player_init()
 {
     ao_initialize();
     mpg123_init();
-    avcodec_register_all();
 }
 
 void fm_player_exit()
