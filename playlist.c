@@ -94,6 +94,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                         // first move the file to a secure location to avoid it being truncated later
                         char cmd[2048], btp[128], bart[128], btitle[128], balb[128], blp[128], bcover[128], burl[128]; 
                         sprintf(cmd, 
+                                "export LC_ALL=en_US.UTF-8;"
                                 "src=$'%s'; dest=\"$src.%s\";"
                                 "tmpimg=\"$src.jpg\";"
                                 "mv \"$src\" \"$dest\";"
@@ -110,7 +111,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                                 "(curl --connect-timeout 15 -m 60 -o \"$tmpimg\" \"$cover\";"
                                 "([ -f \"$tmpimg\" ] && identify \"$tmpimg\") && coverarg=\"-c $tmpimg\" || coverarg=;"
                                 "page_url=$'%s';"
-                                "mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" $datearg $coverarg \"$dest\";"
+                                "/home/lingnan/bin/mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" $datearg $coverarg \"$dest\";"
                                 "rm -f \"$tmpimg\") &", 
                                 escapesh(btp, song->filepath), 
                                 song->ext,
@@ -209,7 +210,10 @@ static fm_song_t* fm_song_jing_parse_json(fm_playlist_t *pl, struct json_object 
     fm_song_t *song = song_init(pl);
     // for the audio link we have to perform a retrieve
     song->sid = json_object_get_int(json_object_object_get(obj, "tid")); 
-    strcpy(song->title, json_object_get_string(json_object_object_get(obj, "n")));
+    const char *str = json_object_get_string(json_object_object_get(obj, "n"));
+    printf("Jing: Song title parsed is %s\n", str);
+    strcpy(song->title, str);
+    printf("Jing: Song title obtained is %s\n", song->title);
     strcpy(song->artist, json_object_get_string(json_object_object_get(obj, "atn")));
     strcpy(song->album, json_object_get_string(json_object_object_get(obj, "an")));
     const char *cover = json_object_get_string(json_object_object_get(obj, "fid"));
@@ -307,16 +311,6 @@ static void fm_playlist_push_front(fm_song_t **base, fm_song_t *song)
         *base = song;
         printf("Playlist add song %d before %p\n", song->sid, *base);
     }
-}
-
-static fm_song_t* fm_playlist_pop_front(fm_playlist_t *pl)
-{
-    fm_song_t *ret = NULL;
-    if (pl->current) {
-        ret = pl->current;
-        pl->current = pl->current->next;
-    }
-    return ret;
 }
 
 static void fm_playlist_clear(fm_playlist_t *pl)
@@ -533,9 +527,10 @@ static int fm_playlist_local_dump_parse_report(fm_playlist_t *pl, fm_song_t **ba
 {
     char buf[512];
     sprintf(buf,
+            "export LC_ALL=en_US.UTF-8;"
             "IFS='\n';"
             "args=($(find $'%s' -type f -mmin +2 -print0 | xargs -0 file -iF'\t' | fgrep audio | cut -d'\t' -f1 | shuf | head -n '%d'));"
-            "mutagen -f '{path}\n{title}\n{artist}\n{wors}\n{album}\n{year}\n{kbps}\n{len}' \"${args[@]}\";"
+            "/home/lingnan/bin/mutagen -f '{path}\n{title}\n{artist}\n{wors}\n{album}\n{year}\n{kbps}\n{len}' \"${args[@]}\";"
             , pl->config.music_dir, N_LOCAL_CHANNEL_FETCH);
     printf("Local channel refilling command is: %s\n", buf);
     // the field reference counter
@@ -844,11 +839,21 @@ static fm_song_t **playlist_end_in_number(fm_song_t **start, int n)
     return NULL;
 }
 
+// before using this method; make sure that pl->current is not NULL!
 static void fm_playlist_next_on_link(fm_playlist_t *pl)
 {
     // stop the player first
     pl->fm_player_stop();
-    fm_song_free(pl, fm_playlist_pop_front(pl));
+    fm_song_t *curr = pl->current;
+    pl->current = curr->next;
+    // we need to make sure that for the song that's going to be removed, the current download is not pointing its the next field
+    pthread_mutex_lock(&pl->mutex_current_download);
+    if (pl->current_download == &curr->next) {
+        pl->current_download = &pl->current;
+    }
+    pthread_mutex_unlock(&pl->mutex_current_download);
+
+    fm_song_free(pl, curr);
     // starts caching when there are two songs left
     fm_song_t **ef = playlist_end_in_number(&pl->current, PLAYLIST_REFILL_THRESHOLD);
     if (ef) {
