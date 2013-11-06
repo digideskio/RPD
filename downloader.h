@@ -58,7 +58,8 @@ typedef struct {
     int total_size;
     downloader_t **downloaders;
     CURL *multi_handle;
-    pthread_mutex_t mutex_op;
+    pthread_mutex_t mutex_op_download;
+    pthread_mutex_t mutex_op_init;
     pthread_mutex_t mutex_elem;
 } downloader_stack_t;
 

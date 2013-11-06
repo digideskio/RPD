@@ -191,7 +191,8 @@ downloader_stack_t *stack_init()
     stack->size = 0;
     stack->downloaders = (downloader_t **) malloc(DEFAULT_N_DOWNLOADERS * sizeof(downloader_t *));
     stack->multi_handle = curl_multi_init();
-    pthread_mutex_init(&stack->mutex_op, NULL);
+    pthread_mutex_init(&stack->mutex_op_download, NULL);
+    pthread_mutex_init(&stack->mutex_op_init, NULL);
     pthread_mutex_init(&stack->mutex_elem, NULL);
     int i;
     for (i=0; i<DEFAULT_N_DOWNLOADERS; i++) {
@@ -259,12 +260,12 @@ downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downl
         stack_downloader_init(stack, start[i]);
     }
 
-    pthread_mutex_lock(&stack->mutex_op);
+    pthread_mutex_lock(&stack->mutex_op_download);
     /* we start some action by calling perform right away */
     printf("Trying with initial perform for multi-handle %p\n", stack->multi_handle);
     while ( curl_multi_perform(stack->multi_handle, &still_running) == CURLM_CALL_MULTI_PERFORM );
     printf("Initial perform finished\n");
-    pthread_mutex_unlock(&stack->mutex_op);
+    pthread_mutex_unlock(&stack->mutex_op_download);
 
 
     // testing the condition without lock (testing it with lock might cause indefinite wait in some cases)
@@ -274,7 +275,7 @@ downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downl
     }
 
     do {
-        pthread_mutex_lock(&stack->mutex_op);
+        pthread_mutex_lock(&stack->mutex_op_download);
 
         struct timeval timeout;
         int rc; /* select() return code */
@@ -322,7 +323,7 @@ downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downl
         /*printf("Marking the idle downloaders\n");*/
         stack_mark_idle_downloaders(stack);
 
-        pthread_mutex_unlock(&stack->mutex_op);
+        pthread_mutex_unlock(&stack->mutex_op_download);
 
         /*printf("Testing the condition\n");*/
         if ((ret = condition(stack, start, length, data))) {
@@ -384,7 +385,7 @@ int stack_perform_until_done(downloader_stack_t *stack, downloader_t *downloader
 // this method has to be mutex protected (imagine two threads trying to obtain downloaders at the same time, and both of them then might get hold of the same downloader (and dangerously initiate on that handle at the same time)
 void stack_get_idle_downloaders(downloader_stack_t *stack, downloader_t **start, int length, enum downloader_mode mode)
 {
-    pthread_mutex_lock(&stack->mutex_op);
+    pthread_mutex_lock(&stack->mutex_op_init);
     stack_mark_idle_downloaders(stack);
     int i, n = 0;
     enum downloader_buffer_type preferred_btype = bNone;
@@ -422,7 +423,7 @@ void stack_get_idle_downloaders(downloader_stack_t *stack, downloader_t **start,
         // lock the downloaders so that they cannot be used by subsequent get_idle_downloaders call
         start[i]->locked = 1;
     }
-    pthread_mutex_unlock(&stack->mutex_op);
+    pthread_mutex_unlock(&stack->mutex_op_init);
 }
 
 downloader_t *stack_get_idle_downloader(downloader_stack_t *stack, enum downloader_mode mode)
@@ -440,7 +441,8 @@ void stack_free(downloader_stack_t *stack)
     }
     free(stack->downloaders);
     curl_multi_cleanup(stack->multi_handle);
-    pthread_mutex_destroy(&stack->mutex_op);
+    pthread_mutex_destroy(&stack->mutex_op_download);
+    pthread_mutex_destroy(&stack->mutex_op_init);
     pthread_mutex_destroy(&stack->mutex_elem);
     free(stack);
 }
