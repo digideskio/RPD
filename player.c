@@ -9,6 +9,8 @@
 #include <libgen.h>
 #include <unistd.h>
 
+#define PLAYER_DURATION_MARGIN 2
+
 static SwrFormat get_dest_sample_fmt_from_sample_fmt(struct SwrContext **swr_ctx, SwrFormat src)
 {
     int i, ret;
@@ -58,6 +60,16 @@ static SwrFormat get_dest_sample_fmt_from_sample_fmt(struct SwrContext **swr_ctx
     return dest;
 }
 
+int fm_player_pos(fm_player_t *pl)
+{
+    return pl->info.duration * pl->info.time_base.num / pl->info.time_base.den;
+}
+
+int fm_player_length(fm_player_t *pl)
+{
+    return pl->info.length;
+}
+
 static int wait_new_content(fm_player_t *pl)
 {
     int ret = 0;
@@ -68,6 +80,14 @@ static int wait_new_content(fm_player_t *pl)
         printf("Wait finished\n");
     } else {
         // there is no more downloader associated with this song
+        // check if the current song is already complete
+        int pos = fm_player_pos(pl);
+        int len = fm_player_length(pl);
+        if (len - pos >= PLAYER_DURATION_MARGIN) {
+            printf("Incomplete song ended with current pos %d / %d\n", pos, len);
+            // unmark the like field to make sure that this song is removed
+            pl->song->like = 0;
+        }
         if (pl->tid_ack > 0) {
             pthread_kill(pl->tid_ack, pl->sig_ack);
         }
@@ -410,16 +430,6 @@ void fm_player_set_ack(fm_player_t *pl, pthread_t tid, int sig)
 {
     pl->tid_ack = tid;
     pl->sig_ack = sig;
-}
-
-int fm_player_pos(fm_player_t *pl)
-{
-    return pl->info.duration * pl->info.time_base.num / pl->info.time_base.den;
-}
-
-int fm_player_length(fm_player_t *pl)
-{
-    return pl->info.length;
 }
 
 void fm_player_play(fm_player_t *pl)
