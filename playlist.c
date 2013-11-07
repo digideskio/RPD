@@ -151,6 +151,10 @@ static fm_song_t *fm_song_douban_parse_json(fm_playlist_t *pl, struct json_objec
     strcpy(song->album, json_object_get_string(json_object_object_get(obj, "albumtitle")));
     song->pubdate = json_object_get_int(json_object_object_get(obj, "public_time"));
     strcpy(song->cover, json_object_get_string(json_object_object_get(obj, "picture")));
+    // use the large image url
+    char *c = strstr(song->cover, "mpic");
+    if (c)
+        *c = 'l';
     sprintf(song->url, "%s%s", DOUBAN_MUSIC_WEBSITE, json_object_get_string(json_object_object_get(obj, "album")));
     song->like = json_object_get_int(json_object_object_get(obj, "like"));
     strcpy(song->ext, "mp3");
