@@ -243,11 +243,15 @@ void stack_downloader_init(downloader_stack_t *stack, downloader_t *dl)
     pthread_mutex_unlock(&stack->mutex_elem);
 }
 
-static void downloader_unlock_all(downloader_t **start, int length) {
+void stack_downloaders_cleanup(downloader_stack_t *stack, downloader_t **start, int length) {
     int i;
     for (i=0; i<length; i++) {
         start[i]->locked = 0;
     }
+}
+
+void stack_downloader_cleanup(downloader_stack_t *stack, downloader_t *d) {
+    stack_downloaders_cleanup(stack, &d, 1);
 }
 
 downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downloader_t **start, int length, void *data, downloader_t *(*condition)(downloader_stack_t *stack, downloader_t **start, int length, void *data))
@@ -270,7 +274,6 @@ downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downl
 
     // testing the condition without lock (testing it with lock might cause indefinite wait in some cases)
     if ((ret = condition(stack, start, length, data))) {
-        downloader_unlock_all(start, length);
         return ret;
     }
 
@@ -327,13 +330,11 @@ downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downl
 
         /*printf("Testing the condition\n");*/
         if ((ret = condition(stack, start, length, data))) {
-            downloader_unlock_all(start, length);
             return ret;
         }
 
     } while (still_running);
     // still running turns false
-    downloader_unlock_all(start, length);
     return ret;
 }
 

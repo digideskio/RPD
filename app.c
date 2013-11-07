@@ -317,7 +317,7 @@ int main() {
     fm_config_t configs[] = {
         {
             .type = FM_CONFIG_STR,
-            .section = "DoubanFM",
+            .section = "Radio",
             .key = "channel",
             .val.s = playlist_conf.channel
         },

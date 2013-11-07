@@ -4,11 +4,16 @@
 #include "downloader.h"
 #include "validator.h"
 #include <curl/curl.h>
+// definitions of some special channels
 #define LOCAL_CHANNEL "999"
+#define JING_TOP_CHANNEL "#top"
+#define JING_RAND_CHANNEL "#rand"
 // out of them 1 is used for emergency (when all downloaders are downloading
 #define N_SONG_DOWNLOADERS 2
 #define N_LOCAL_CHANNEL_FETCH 25
 #define PLAYLIST_REFILL_THRESHOLD 3
+#define DOUBAN_MUSIC_WEBSITE "http://music.douban.com"
+#define N_JING_CHANNEL_FETCH 5
 
 
 enum fm_playlist_mode {

@@ -70,6 +70,8 @@ void stack_add_downloader(downloader_stack_t *stack, downloader_t *d);
 // this will return any of the downloader in the given list that has become idle
 downloader_t *stack_perform_until_any_done(downloader_stack_t *stack, downloader_t **start, int length);
 downloader_t *stack_perform_until_condition_met(downloader_stack_t *stack, downloader_t **start, int length, void *data, downloader_t *(*condition)(downloader_stack_t *stack, downloader_t **start, int length, void *data));
+void stack_downloaders_cleanup(downloader_stack_t *stack, downloader_t **start, int length);
+void stack_downloader_cleanup(downloader_stack_t *stack, downloader_t *d);
 void stack_downloader_stop(downloader_stack_t *stack, downloader_t *dl);
 // this function will be automatically called in any perform function; however if you are manipulating the handles inside the 
 // perform function, this should be used to reinitialize the downloader

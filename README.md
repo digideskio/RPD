@@ -14,13 +14,19 @@ Improving on the original model, this version uses a multi-threaded downloading 
 
 A negativity here is that when the program first starts pulling songs it's relatively slow, since the additional downloaders will take away bandwidth for the first song. However, this will be subsequently complemented by smoother music playing in all following songs. (Or you can simply change the number of assigned song downloaders to 1 to avoid this problem)
 
-## More services available
 
-In addition to the original Douban services, two other types of services are added:
+## Configuration changes
 
-### <a id="local"></a>Local music channel / Red-Heart channel
+If you are have `channel` setting in `fmd.conf`, remember to put it outside `[DoubanFM]` but under `[Radio]` instead like this
 
-#### Configuration
+    [Radio]
+    channel = 0
+
+The reason for this is that there are more channels now in addition to Douban channels.
+
+## <a id="local"></a>Local music channel / Red-Heart channel
+
+### Configuration
 
 To configure the local music channel simply put this in your `fmd.conf`
 
@@ -31,11 +37,11 @@ The local channel comes with id `999` and if you also use my fork of [FMC](https
 
 You also need to make sure you have installed `mutagen` (for parsing the music tags) and downloaded my frontend [client](mutagen).
 
-#### Like
+### Like
 
 By default all music is `liked`. If you unrate a song, the action would be the same as `ban`.
 
-#### Ban
+### Ban
 
 The song will be removed from your disk. In addition, if it's enclosed in some directory that becomes empty, that directory is removed as well.
 
@@ -45,7 +51,7 @@ Aside from these things the local channel is almost identical to any online chan
 
 ## Jing.fm
 
-#### Configuration
+### Configuration
 
 You need to first have a [Jing.fm](http://jing.fm) account. Then run this line at the command line, replacing `<email>` and `<password>` accordingly.
 
@@ -58,7 +64,7 @@ Copy down your userid (buried inside the JSON response `result.usr.id`), Jing-A-
     rtoken = <Jing-R-Token-Header>
     uid = <uid>
 
-#### Channels
+### Channels
 
 To start a Jing.fm channel, simply use the old command `setch <string>`. While any integer value will be interpreted as a Douban channel, all other strings will be seen as queries into Jing.fm. For example:
 
@@ -66,9 +72,20 @@ To start a Jing.fm channel, simply use the old command `setch <string>`. While a
 
 will start a new Jing.fm channel on 周杰伦.
 
-#### Like & Ban
+In addition, some channels are *special* 
+
+* `#top`: this is identical to listening to music from the 音乐瀑布 on the official webpage
+* `#rand`: this will start a random channel using a trending search term (which is the same as the 'suggestion' function on the official webpage)
+
+### Like & Ban
 
 These actions are identical to those used with Douban channels from the user point of view. But of course now the data is sent to jing.fm instead.
+
+## Music Caching
+
+All played and liked songs will be saved to `music_dir` (as specified in the [Local](#local) section) in `artist/title.<ext>` format. The ID3 tags (for `m4a`, iTunes-style tags) will be saved along as well. The cover image, when downloadable, will be downloaded and embedded into the song.
+
+Again, to make sure all the tags work you need to install `mutagen` and download my [frontend](mutagen).
 
 ## More fine-grained infomation
 
@@ -81,8 +98,3 @@ A few more commands are added in this fork. They include
 * `kbps <bitrate>`: on-the-fly switching of music quality
 * `webpage`: opens the douban music page for the current song using the browser specified in the shell variable `$BROWSER`; if the page url is not available e.g. for Jing.fm channels, it will open the search page on douban music
 
-## Music Caching
-
-All played and liked songs will be saved to `music_dir` (as specified in the [Local](#local) section) in `artist/title.<ext>` format. The ID3 tags (for `m4a`, iTunes-style tags) will be saved along as well. The cover image, when downloadable, will be downloaded and embedded into the song.
-
-Again, to make sure all the tags work you need to install `mutagen` and download my [frontend](mutagen).
