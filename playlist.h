@@ -29,7 +29,7 @@ typedef struct fm_song {
     int pubdate;
     char cover[128];
     char url[128];
-    char audio[128];
+    char audio[256];
     char kbps[8];
     // the extension for the song // used during caching process
     char ext[4];
@@ -41,7 +41,7 @@ typedef struct fm_song {
     // the validator to validate whether a given file is a valid/full download
     validator_t validator;
     // the corresponding file path for this song
-    char filepath[128];
+    char filepath[256];
     // the corresponding downloader (null if it's not being downloaded)
     downloader_t *downloader;
     // the corresponding mutex to lock the downloader
@@ -55,7 +55,7 @@ typedef struct fm_history {
 } fm_history_t;
 
 typedef struct {
-    char channel[64];
+    char channel[128];
 
     // douban mode
     int douban_uid;

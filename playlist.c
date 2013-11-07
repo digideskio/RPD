@@ -70,7 +70,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
             struct stat sts;
             // must make sure that the tmp file exists and the dest file does not exist
             if (stat(song->filepath, &sts) == 0) {
-                char lp[128];
+                char lp[256];
                 if (get_file_path(lp, pl->config.music_dir, song->artist, song->title, song->ext) == 0) {
                     if (strcmp(song->filepath, lp) == 0)
                         to_remove = 0;
@@ -78,7 +78,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                         to_remove = 0;
                         printf("Attemping to cache the song for path %s\n", lp);
                         // first move the file to a secure location to avoid it being truncated later
-                        char cmd[2048], btp[128], bart[128], btitle[128], balb[128], blp[128], bcover[128], burl[128]; 
+                        char cmd[3072], btp[256], bart[128], btitle[128], balb[128], blp[256], bcover[128], burl[128]; 
                         sprintf(cmd, 
                                 "export LC_ALL=en_US.UTF-8;"
                                 "src=$'%s'; dest=\"$src.%s\";"
@@ -394,7 +394,7 @@ static void fm_playlist_curl_jing_headers_init(fm_playlist_t *pl, struct curl_sl
 static void fm_playlist_curl_jing_config(fm_playlist_t *pl, CURL *curl, char act, struct curl_slist *slist, void *data)
 {
     // initialize the buffer
-    char buf[128], *format;
+    char buf[1024], *format;
     switch(act) {
         case 'm':
             // get the music url links 
@@ -408,6 +408,7 @@ static void fm_playlist_curl_jing_config(fm_playlist_t *pl, CURL *curl, char act
                 format = "%s/app/fetch_top";
                 sprintf(buf, "ps=%d", N_JING_CHANNEL_FETCH);
             } else {
+                printf("Jing Normal channel detected\n");
                 format = "%s/search/jing/fetch_pls";
                 // escape the query
                 char *arg = curl_easy_escape(curl, pl->config.channel, 0);
@@ -465,10 +466,14 @@ void fm_playlist_update_mode(fm_playlist_t *pl)
             fm_playlist_curl_jing_config(pl, d->curl, 'l', slist, NULL);
             stack_perform_until_done(pl->stack, d);
             // get the keyword and set that into the channel field
-            json_object *o = json_tokener_parse(d->content.mbuf->data);
-            if ((o = fm_jing_parse_json_result(o))) {
-                strcpy(pl->config.channel, json_object_get_string(json_object_object_get(array_list_get_idx(json_object_get_array(json_object_object_get(o, "items")), 0), "sw")));
+            json_object *obj = json_tokener_parse(d->content.mbuf->data);
+            json_object *res = fm_jing_parse_json_result(obj);
+            if (res) {
+                const char *ch = json_object_get_string(json_object_object_get(array_list_get_idx(json_object_get_array(json_object_object_get(res, "items")), 0), "sw"));
+                printf("Obtained random natural language channel: %s\n", ch);
+                strcpy(pl->config.channel, ch);
             }
+            json_object_put(obj);
             curl_slist_free_all(slist);
             stack_downloader_cleanup(pl->stack, d);
         }
@@ -479,13 +484,14 @@ static int fm_playlist_jing_parse_json(fm_playlist_t *pl, struct json_object *ob
 {
     // here we are only going to parse the fetch_pls (conceivably)
     int ret = 0;
-    if ((obj = fm_jing_parse_json_result(obj)))  {
+    json_object *res = fm_jing_parse_json_result(obj);
+    if (res)  {
         printf("Jing playlist parsing new API response\n");
-        array_list *song_objs = json_object_get_array(json_object_object_get(obj, "items"));
+        array_list *song_objs = json_object_get_array(json_object_object_get(res, "items"));
         if (!song_objs) {
             // then we should try the top field
             // this is a dirty hack, but works for now
-            song_objs = json_object_get_array(json_object_object_get(obj, "top"));
+            song_objs = json_object_get_array(json_object_object_get(res, "top"));
         }
         if (song_objs) {
             printf("parsed song\n");
@@ -529,16 +535,19 @@ static int fm_playlist_jing_parse_json(fm_playlist_t *pl, struct json_object *ob
                 for (i=0; i<nmdls; i++) {
                     song = (fm_song_t *)dls[i]->data;
                     json_object *o = json_tokener_parse(dls[i]->content.mbuf->data);
-                    if ((o = fm_jing_parse_json_result(o))) {
-                        strcpy(song->audio, json_object_get_string(o));
+                    json_object *r = fm_jing_parse_json_result(o);
+                    if (r) {
+                        strcpy(song->audio, json_object_get_string(r));
                         printf("Successfully retrieved the audio url %s for song title: %s\n", song->audio, song->title);
                     }
+                    json_object_put(o);
                 }
                 for (i=nmdls; i<used; i++) {
                     song = (fm_song_t *)dls[i]->data;
                     json_object *o = json_tokener_parse(dls[i]->content.mbuf->data);
-                    if ((o = fm_jing_parse_json_result(json_tokener_parse(dls[i]->content.mbuf->data)))) {
-                        song->like = *json_object_get_string(json_object_object_get(o, "lvd")) == 'l' ? 1 : 0;
+                    json_object *r = fm_jing_parse_json_result(o);
+                    if (r) {
+                        song->like = *json_object_get_string(json_object_object_get(r, "lvd")) == 'l' ? 1 : 0;
                         printf("Song %s is liked? %d\n", song->title, song->like);
                     }
                     if (!valid_song_url(song->audio) && song->filepath[0] == '\0') {
@@ -546,6 +555,7 @@ static int fm_playlist_jing_parse_json(fm_playlist_t *pl, struct json_object *ob
                         fm_song_free(pl, song);
                         song = NULL;
                     }
+                    json_object_put(o);
                     fm_playlist_push_front(base, song);
                 }
                 curl_slist_free_all(slist);
@@ -569,7 +579,7 @@ static int fm_playlist_jing_parse_json(fm_playlist_t *pl, struct json_object *ob
 
 static int fm_playlist_local_dump_parse_report(fm_playlist_t *pl, fm_song_t **base)
 {
-    char buf[512];
+    char buf[1024];
     sprintf(buf,
             "export LC_ALL=en_US.UTF-8;"
             "IFS='\n';"
@@ -797,22 +807,23 @@ static int fm_playlist_send_report(fm_playlist_t *pl, char act, fm_song_t **base
     int (*parse_fun) (fm_playlist_t *pl, json_object *obj, fm_song_t **base);
     downloader_t *dl = stack_get_idle_downloader(pl->stack, base ? dMem : dDrop);
     printf("### Downloader obtained for playlist retrieval is %p\n", dl);
+    printf("### playlist mode is %d\n", pl->mode);
     switch (pl->mode) {
         case plDouban: // we should first request the downloader; obtain the curl handle and then 
-            printf("### Entered Douban playlist retieval mode\n", dl);
+            printf("### Entered Douban playlist retieval mode\n");
             fm_playlist_curl_douban_config(pl, dl->curl, act);
-            printf("### Curl config finished\n", dl);
+            printf("### Curl config finished\n");
             stack_perform_until_done(pl->stack, dl);
             printf("### Downloader finished is %p; idle %d\n", dl, dl->idle);
             parse_fun = fm_playlist_douban_parse_json;
             break;
         case plJing: {
-            printf("### Entered Jing playlist retieval mode\n", dl);
+            printf("### Entered Jing playlist retrieval mode\n");
             struct curl_slist *slist;
             fm_playlist_curl_jing_headers_init(pl, &slist);
             // the jing config shouldn't involve any data for the playlist. Otherwise there's some error
             fm_playlist_curl_jing_config(pl, dl->curl, act, slist, NULL);
-            printf("### Curl config finished\n", dl);
+            printf("### Curl config finished\n");
             stack_perform_until_done(pl->stack, dl);
             printf("### Downloader finished is %p; idle %d\n", dl, dl->idle);
             curl_slist_free_all(slist);

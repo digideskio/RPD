@@ -161,9 +161,9 @@ void app_client_handler(void *ptr, char *input, char *output)
         switch (app->player.status) {
             case FM_PLAYER_PLAY:
             case FM_PLAYER_PAUSE: {
-                char sh[1024];
+                char sh[1280];
                 // the url can become rather long after escaping
-                char url[896];
+                char url[1024];
                 fm_song_t *current = fm_playlist_current(&app->playlist);
                 if (escapesh(url, current->url)[0] == '\0') {
                     // we need to make a custom url to open
