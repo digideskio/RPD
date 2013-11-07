@@ -81,34 +81,28 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                         char cmd[3072], btp[256], bart[128], btitle[128], balb[128], blp[256], bcover[128], burl[128]; 
                         sprintf(cmd, 
                                 "export LC_ALL=en_US.UTF-8;"
-                                "src=$'%s'; dest=\"$src.%s\";"
-                                "tmpimg=\"$src.jpg\";"
-                                "mv \"$src\" \"$dest\";"
-                                "src=\"$dest\";"
-                                /*"l=\"$(mutagen -f '{len}' \"$src\")\";"*/
-                                /*"ld=$((l - %d));"*/
-                                /*"(((ld < -2)) || ((ld > 2))) && rm -f \"$src\" && exit 0;"*/
-                                "artist=$'%s'; title=$'%s'; album=$'%s'; date='%d';"
-                                "[[ \"$date\" =~ [0-9]{4} ]] && datearg=\"-Y $date\" || datearg=;"
-                                "dest=$'%s';"
-                                "mkdir -p \"$(dirname \"$dest\")\";"
-                                "mv -f \"$src\" \"$dest\";" 
-                                "cover=$'%s';"
-                                "(curl --connect-timeout 15 -m 60 -o \"$tmpimg\" \"$cover\";"
-                                "([ -f \"$tmpimg\" ] && identify \"$tmpimg\") && coverarg=\"-c $tmpimg\" || coverarg=;"
-                                "page_url=$'%s';"
-                                "/home/lingnan/bin/mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" $datearg $coverarg \"$dest\";"
+                                "src=$'%s' tmpimg=\"$src.jpg\";"
+                                "(curl --connect-timeout 15 -m 60 -o \"$tmpimg\" $'%s';"
+                                // we will not proceed to tag the file if the cover image is not downloaded successfully
+                                "if [ -f \"$tmpimg\" ] && identify \"$tmpimg\"; then "
+                                    "artist=$'%s' title=$'%s' album=$'%s' date='%d' page_url=$'%s';"
+                                    "[[ \"$date\" =~ [0-9]{4} ]] && datearg=\"-Y $date\" || datearg=;"
+                                    "dest=$'%s';"
+                                    "mkdir -p \"$(dirname \"$dest\")\";"
+                                    "mv -f \"$src\" \"$dest\";" 
+                                    "/home/lingnan/bin/mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" -c \"$tmpimg\" $datearg \"$dest\";"
+                                "else "
+                                    "rm -f \"$src\";"
+                                "fi;"
                                 "rm -f \"$tmpimg\") &", 
                                 escapesh(btp, song->filepath), 
-                                song->ext,
-                                /*song->length,*/
+                                escapesh(bcover, song->cover),
                                 escapesh(bart, song->artist), 
                                 escapesh(btitle, song->title), 
                                 escapesh(balb, song->album), 
                                 song->pubdate,
-                                escapesh(blp, lp),
-                                escapesh(bcover, song->cover),
-                                escapesh(burl, song->url));
+                                escapesh(burl, song->url),
+                                escapesh(blp, lp));
                         printf("Move and tag command: %s\n", cmd);
                         system(cmd);
                     }                                                                   
@@ -164,6 +158,10 @@ static fm_song_t *fm_song_douban_parse_json(fm_playlist_t *pl, struct json_objec
     // check if we can substitute the audio field with a local path
     if (get_file_path(song->filepath, pl->config.music_dir, song->artist, song->title, song->ext) == 0 && validate(&song->validator, song->filepath)) {
         printf("Detected local audio file for song %s/%s. Using the file directly instead of downloading.\n", song->artist, song->title);
+        if (!song->like) {
+            printf("The song is not liked; changing it to liked to indicate preference\n");
+            song->like = 1;
+        }
     } else {
         song->filepath[0] = '\0';
         strcpy(song->audio, json_object_get_string(json_object_object_get(obj, "url")));
@@ -233,6 +231,8 @@ static fm_song_t* fm_song_jing_parse_json(fm_playlist_t *pl, struct json_object 
     // check if we can substitute the audio field with a local path
     if (get_file_path(song->filepath, pl->config.music_dir, song->artist, song->title, song->ext) == 0 && validate(&song->validator, song->filepath)) {
         printf("Detected local audio file for song %s/%s. Using the file directly instead of downloading.\n", song->artist, song->title);
+        // we can be quite sure that this song is liked
+        song->like = 1;
     } else {
         song->filepath[0] = '\0';
         strcpy(song->audio, json_object_get_string(json_object_object_get(obj, "mid")));
@@ -425,7 +425,7 @@ static void fm_playlist_curl_jing_config(fm_playlist_t *pl, CURL *curl, char act
             format = "%s/app/fetch_natural";
             strcpy(buf, "ps=1");
             break;
-        case 'r': 
+        case 'r': case 'u':
             format = "%s/music/post_love_song";
             printf("Rating song for jing: tid = %d\n", pl->current->sid);
             sprintf(buf, "uid=%d&tid=%d", pl->config.jing_uid, pl->current->sid);
@@ -505,65 +505,62 @@ static int fm_playlist_jing_parse_json(fm_playlist_t *pl, struct json_object *ob
             if (len > 0) {
                 int i;
                 fm_song_t *songs[len];
-                // get the len number of downloaders
-                downloader_t *dls[len * 2];
-                stack_get_idle_downloaders(pl->stack, dls, len * 2, dMem);
-                int used = 0;
+                int front = 0, end = len;
+                for (i=0; i<len; i++) {
+                    struct json_object *o = (struct json_object*) array_list_get_idx(song_objs, i);
+                    fm_song_t *s = fm_song_jing_parse_json(pl, o);
+                    if (s) {
+                        if (s->audio[0] != '\0') {
+                            songs[front++] = s;
+                        } else {
+                            songs[--end] = s;
+                        }
+                    }
+                }
+                // get the downloaders
+                printf("Jing song parser: %d songs required to request url and like info\n", front);
+                downloader_t *dls[front * 2];
+                stack_get_idle_downloaders(pl->stack, dls, front * 2, dMem);
 
                 struct curl_slist *slist;
                 fm_playlist_curl_jing_headers_init(pl, &slist);
-                for (i=0; i<len; i++) {
-                    struct json_object *o = (struct json_object*) array_list_get_idx(song_objs, i);
-                    songs[i] = fm_song_jing_parse_json(pl, o);
-                }
-                // add the m downloaders
-                for (i=0; i<len; i++) {
-                    if (songs[i] && songs[i]->audio[0] != '\0') {
-                        fm_playlist_curl_jing_config(pl, dls[used]->curl, 'm', slist, songs[i]->audio);
-                        dls[used++]->data = songs[i];
-                    } 
-                }
-                int nmdls = used;
-                // add the i downloaders
-                for (i=0; i<len; i++) {
-                    if (songs[i]) {
-                        fm_playlist_curl_jing_config(pl, dls[used]->curl, 'i', slist, &songs[i]->sid);
-                        dls[used++]->data = songs[i];
-                    }
+                
+                // add the m and i downloaders
+                for (i=0; i<front; i++) {
+                    fm_playlist_curl_jing_config(pl, dls[i]->curl, 'm', slist, songs[i]->audio);
+                    fm_playlist_curl_jing_config(pl, dls[i+front]->curl, 'i', slist, &songs[i]->sid);
                 }
 
-                printf("Jing song parser: %d of m downloaders used, %d of i downloaders used\n", nmdls, used-nmdls);
-                stack_perform_until_all_done(pl->stack, dls, used);
+                stack_perform_until_all_done(pl->stack, dls, front * 2);
                 printf("Jing song parsing finished\n");
-                fm_song_t *song;
-                for (i=0; i<nmdls; i++) {
-                    song = (fm_song_t *)dls[i]->data;
+                for (i=0; i<front; i++) {
                     json_object *o = json_tokener_parse(dls[i]->content.mbuf->data);
                     json_object *r = fm_jing_parse_json_result(o);
                     if (r) {
-                        strcpy(song->audio, json_object_get_string(r));
-                        printf("Successfully retrieved the audio url %s for song title: %s\n", song->audio, song->title);
+                        strcpy(songs[i]->audio, json_object_get_string(r));
+                        printf("Successfully retrieved the audio url %s for song title: %s\n", songs[i]->audio, songs[i]->title);
                     }
+                    json_object_put(o);
+                    o = json_tokener_parse(dls[i+front]->content.mbuf->data);
+                    r = fm_jing_parse_json_result(o);
+                    if (r) {
+                        songs[i]->like = *json_object_get_string(json_object_object_get(r, "lvd")) == 'l' ? 1 : 0;
+                        printf("Song %s is liked? %d\n", songs[i]->title, songs[i]->like);
+                    }
+                    if (valid_song_url(songs[i]->audio))
+                        fm_playlist_push_front(base, songs[i]);
+                    else 
+                        fm_song_free(pl, songs[i]);
                     json_object_put(o);
                 }
-                for (i=nmdls; i<used; i++) {
-                    song = (fm_song_t *)dls[i]->data;
-                    json_object *o = json_tokener_parse(dls[i]->content.mbuf->data);
-                    json_object *r = fm_jing_parse_json_result(o);
-                    if (r) {
-                        song->like = *json_object_get_string(json_object_object_get(r, "lvd")) == 'l' ? 1 : 0;
-                        printf("Song %s is liked? %d\n", song->title, song->like);
-                    }
-                    if (!valid_song_url(song->audio) && song->filepath[0] == '\0') {
-                        // this song is not useful anymore
-                        fm_song_free(pl, song);
-                        song = NULL;
-                    }
-                    json_object_put(o);
-                    fm_playlist_push_front(base, song);
+                for (i=end; i<len; i++) {
+                    if (songs[i]->filepath[0] != '\0')
+                        fm_playlist_push_front(base, songs[i]);
+                    else 
+                        fm_song_free(pl, songs[i]);
                 }
                 curl_slist_free_all(slist);
-                stack_downloaders_cleanup(pl->stack, dls, len * 2);
+                stack_downloaders_cleanup(pl->stack, dls, front * 2);
             } else {
                 printf("Jing song parser: no song available for the given channel\n");
                 ret = -1;
@@ -999,7 +996,7 @@ fm_song_t* fm_playlist_ban(fm_playlist_t *pl)
 void fm_playlist_rate(fm_playlist_t *pl)
 {
     printf("Playlist rate song\n");
-    if (pl->current) {
+    if (pl->current && !pl->current->like) {
         pl->current->like = 1;
         switch (pl->mode) {
             case plLocal:
@@ -1014,11 +1011,10 @@ void fm_playlist_rate(fm_playlist_t *pl)
 void fm_playlist_unrate(fm_playlist_t *pl)
 {
     printf("Playlist unrate song\n");
-    if (pl->current) {
+    if (pl->current && pl->current->like) {
         pl->current->like = 0;
         switch (pl->mode) {
             case plLocal:
-                pl->current->like = 0;
                 // same action as n
                 fm_playlist_next_on_link(pl);
                 break;
