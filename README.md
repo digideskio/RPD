@@ -17,12 +17,12 @@ A negativity here is that when the program first starts pulling songs it's relat
 
 ## Configuration changes
 
-If you are have `channel` setting in `fmd.conf`, remember to put it outside `[DoubanFM]` but under `[Radio]` instead like this
+If you have `channel` setting in `fmd.conf`, remember to move it outside `[DoubanFM]` and put it under `[Radio]` instead like this
 
     [Radio]
     channel = 0
 
-The reason for this is that there are more channels now in addition to Douban channels.
+The reason for this is that there are more channels now in addition to those from Douban.
 
 ## <a id="local"></a>Local music channel / Red-Heart channel
 
