@@ -227,7 +227,7 @@ static fm_song_t* fm_song_jing_parse_json(fm_playlist_t *pl, struct json_object 
     song->length = json_object_get_int(json_object_object_get(obj, "d"));
     json_object *fs_obj = json_object_object_get(obj, "fs");
     // we can do a rough estimation of the filesize based on duration and bitrate if fs is not available
-    validator_filesize_init(&song->validator, fs_obj ? json_object_get_int(fs_obj) : 255 * song->length / 8);
+    validator_filesize_init(&song->validator, fs_obj ? json_object_get_int(fs_obj) : 255000 * song->length / 8);
     // check if we can substitute the audio field with a local path
     if (get_file_path(song->filepath, pl->config.music_dir, song->artist, song->title, song->ext) == 0 && validate(&song->validator, song->filepath)) {
         printf("Detected local audio file for song %s/%s. Using the file directly instead of downloading.\n", song->artist, song->title);

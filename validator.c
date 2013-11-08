@@ -1,6 +1,6 @@
 #include "validator.h"
 #include <sys/stat.h>
-#define FILESIZE_MARGIN_PERCENT 0.05
+#define FILESIZE_PASS_RATIO 0.95
 
 void sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65])
 {
@@ -70,7 +70,9 @@ int validate(validator_t *validator, char *filepath)
         }
         case vFileSize: 
             printf("Attempting to validate path %s with recorded filesize %d vs actual filesize %d\n", filepath, validator->data.filesize, (int) sts.st_size);
-            return (validator->data.filesize - sts.st_size) / validator->data.filesize < FILESIZE_MARGIN_PERCENT;
+            float percent = (float) sts.st_size / validator->data.filesize;
+            printf("The current file size is of percentage %f of the required file size\n", percent);
+            return percent > FILESIZE_PASS_RATIO;
         default:
             // no validator means no need to validate -> always true
             return 1;
