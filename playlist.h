@@ -8,6 +8,7 @@
 #define LOCAL_CHANNEL "999"
 #define JING_TOP_CHANNEL "#top"
 #define JING_RAND_CHANNEL "#rand"
+#define JING_PSN_CHANNEL "#psn"
 // out of them 1 is used for emergency (when all downloaders are downloading
 #define N_SONG_DOWNLOADERS 2
 #define N_LOCAL_CHANNEL_FETCH 25

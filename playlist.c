@@ -411,6 +411,10 @@ static void fm_playlist_curl_jing_config(fm_playlist_t *pl, CURL *curl, char act
                 printf("Jing Top channel detected\n");
                 format = "%s/app/fetch_top";
                 sprintf(buf, "ps=%d", N_JING_CHANNEL_FETCH);
+            } else if (strcmp(pl->config.channel, JING_PSN_CHANNEL) == 0) {
+                printf("Jing Personal channel detected\n");
+                format = "%s/app/fetch_psnrd";
+                sprintf(buf, "uid=%d&ps=%d", pl->config.jing_uid, N_JING_CHANNEL_FETCH);
             } else {
                 printf("Jing Normal channel detected\n");
                 format = "%s/search/jing/fetch_pls";

@@ -76,6 +76,7 @@ In addition, some channels are *special*
 
 * `#top`: this is identical to listening to music from the 音乐瀑布 on the official webpage
 * `#rand`: this will start a random channel using a trending search term (which is the same as the 'suggestion' function on the official webpage)
+* `#psn`: this starts Jing's personal recommendation channel
 
 ### Like & Ban
 
