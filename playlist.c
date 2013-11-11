@@ -678,17 +678,16 @@ static int fm_playlist_local_dump_parse_report(fm_playlist_t *pl, fm_song_t **ba
 
 static void fm_playlist_curl_douban_config(fm_playlist_t *pl, CURL *curl, char act)
 {
-    char url[1024], h_arg[512] = "";
+    char url[1536], opt_arg[1050] = "";
     switch(act) {
         case 'r': case 'u': case 'e':
             break;
         default:
-            sprintf(h_arg, "&h=%s", fm_playlist_history_str(pl));
+            sprintf(opt_arg, "&h=%s&kbps=%s", fm_playlist_history_str(pl), pl->config.kbps);
     }
     printf("Playlist send report: %d:%c\n", pl->config.douban_uid, act);
-    sprintf(url, "%s?app_name=%s&version=%s&user_id=%d&expire=%d&token=%s&channel=%s&sid=%d&type=%c%s&kbps=%s",
-            pl->douban_api, pl->app_name, pl->version, pl->config.douban_uid, pl->config.expire, pl->config.douban_token, pl->config.channel,
-            pl->current ? pl->current->sid : 0, act, h_arg, pl->config.kbps);
+    sprintf(url, "%s?app_name=%s&version=%s&user_id=%d&expire=%d&token=%s&channel=%s&sid=%d&type=%c%s",
+            pl->douban_api, pl->app_name, pl->version, pl->config.douban_uid, pl->config.expire, pl->config.douban_token, pl->config.channel, pl->current ? pl->current->sid : 0, act, opt_arg);
     printf("Playlist request: %s\n", url);
 
     curl_easy_setopt(curl, CURLOPT_URL, url);

@@ -24,6 +24,18 @@ If you have `channel` setting in `fmd.conf`, remember to move it outside `[Douba
 
 The reason for this is that there are more channels now in addition to those from Douban.
 
+## Requirements
+
+This version of `fmd` has the following dependencies:
+
+* `ffmpeg` for music decoding
+* `libao` for music playing
+* `libcurl` for api calls and music downloading
+* `json-c` for json parsing
+* `openssl` for validating cached songs using sha256
+* `mutagen` for local music tagging
+* my mutagen [frontend](mutagen) for accessing the useful functions from `mutagen`
+
 ## <a id="local"></a>Local music channel / Red-Heart channel
 
 ### Configuration
@@ -34,8 +46,6 @@ To configure the local music channel simply put this in your `fmd.conf`
     music_dir = {default value: ~/Music}
 
 The local channel comes with id `999` and if you also use my fork of [FMC](https://github.com/lynnard/fmc), it will display the channel name as the name of the current login user. All files of mimetype `audio/*` within the `music_dir` are added randomly to the playlist.
-
-You also need to make sure you have installed `mutagen` (for parsing the music tags) and downloaded my frontend [client](mutagen).
 
 ### Like
 
@@ -85,8 +95,6 @@ These actions are identical to those used with Douban channels from the user poi
 ## Music Caching
 
 All played and liked songs will be saved to `music_dir` (as specified in the [Local](#local) section) in `artist/title.<ext>` format. The ID3 tags (for `m4a`, iTunes-style tags) will be saved along as well. The cover image, when downloadable, will be downloaded and embedded into the song.
-
-Again, to make sure all the tags work you need to install `mutagen` and download my [frontend](mutagen).
 
 ## More fine-grained infomation
 
