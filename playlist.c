@@ -90,7 +90,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                                     "dest=$'%s';"
                                     "mkdir -p \"$(dirname \"$dest\")\";"
                                     "mv -f \"$src\" \"$dest\";" 
-                                    "/home/lingnan/bin/mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" -c \"$tmpimg\" $datearg \"$dest\";"
+                                    "mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" -c \"$tmpimg\" $datearg \"$dest\";"
                                 "else "
                                     "rm -f \"$src\";"
                                 "fi;"
@@ -589,7 +589,7 @@ static int fm_playlist_local_dump_parse_report(fm_playlist_t *pl, fm_song_t **ba
             "export LC_ALL=en_US.UTF-8;"
             "IFS='\n';"
             "args=($(find $'%s' -type f -mmin +2 -print0 | xargs -0 file -iF'\t' | fgrep audio | cut -d'\t' -f1 | shuf | head -n '%d'));"
-            "/home/lingnan/bin/mutagen -f '{path}\n{title}\n{artist}\n{wors}\n{album}\n{year}\n{kbps}\n{len}' \"${args[@]}\";"
+            "mutagen -f '{path}\n{title}\n{artist}\n{wors}\n{album}\n{year}\n{kbps}\n{len}' \"${args[@]}\";"
             , pl->config.music_dir, N_LOCAL_CHANNEL_FETCH);
     printf("Local channel refilling command is: %s\n", buf);
     // the field reference counter
