@@ -493,6 +493,8 @@ int fm_playlist_update_mode(fm_playlist_t *pl, char *channel)
             json_object_put(obj);
             curl_slist_free_all(slist);
             stack_downloader_cleanup(pl->stack, d);
+        } else {
+            strcpy(pl->config.channel, channel);
         }
     }
     return 0;
