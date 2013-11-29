@@ -136,6 +136,9 @@ static int open_song(fm_player_t *pl)
         printf("Could not open codec\n");
         return -1;
     }
+
+    // initialize the ao_sample format
+    ao_sample_format ao_fmt;
     
     // adjusting for resampling
     printf("Attempting to adjusting for resampling\n");
@@ -145,15 +148,12 @@ static int open_song(fm_player_t *pl)
     pl->src_swr_format.bits = 0;
     pl->dest_swr_format = pl->src_swr_format;
     switch(pl->context->sample_fmt) {
-        case AV_SAMPLE_FMT_U8:         ///< unsigned 8 bits 
-        case AV_SAMPLE_FMT_S16:       ///< signed 16 bits  
-        case AV_SAMPLE_FMT_S32:       ///< signed 32 bits  
-        case AV_SAMPLE_FMT_U8P:       ///< unsigned 8 bits, planar 
-        case AV_SAMPLE_FMT_S16P:     ///< signed 16 bits, planar  
-        case AV_SAMPLE_FMT_S32P:     ///< signed 32 bits, planar  
-            pl->resampled = 0;
-            break;
-        // for float and double
+        case AV_SAMPLE_FMT_U8: ao_fmt.bits = 8; pl->resampled = 0; break;
+        case AV_SAMPLE_FMT_S16: ao_fmt.bits = 16; pl->resampled = 0; break;
+        case AV_SAMPLE_FMT_S32: ao_fmt.bits = 32; pl->resampled = 0; break;
+        case AV_SAMPLE_FMT_U8P: ao_fmt.bits = 8; pl->resampled = 0; break;
+        case AV_SAMPLE_FMT_S16P: ao_fmt.bits = 16; pl->resampled = 0; break;
+        case AV_SAMPLE_FMT_S32P: ao_fmt.bits = 32; pl->resampled = 0; break;
         default: 
             pl->resampled = 1;
             printf("Resampling needs to be done\n"); 
@@ -162,11 +162,24 @@ static int open_song(fm_player_t *pl)
                 printf("Cannot resample the data in the specified stream. Sample fmt is %d\n", pl->src_swr_format.sample_fmt);
                 return -1;
             }
+            ao_fmt.bits = pl->dest_swr_format.bits;
             break;
     }
 
+    printf("ao setup: bits is %d\n", ao_fmt.bits);
+    ao_fmt.channels = pl->context->channels;
+    printf("ao setup: channels is %d\n", ao_fmt.channels);
+    ao_fmt.rate = pl->context->sample_rate;
+    printf("ao setup: sampling rate is %d\n", ao_fmt.rate);
+    ao_fmt.byte_format = AO_FMT_NATIVE;
+    ao_fmt.matrix = 0;
+    pl->dev = ao_open_live(pl->driver, &ao_fmt, pl->ao_options);
+    if (pl->dev == NULL) {
+        printf("Failed to open the ao device.\n");
+        return -1;
+    }
+
     printf("Song openning process finished.\n");
-    
     return 0;
 }
 
@@ -195,6 +208,12 @@ static void close_song(fm_player_t *pl)
         av_freep(&pl->interweave_buf);
         pl->interweave_buf = NULL;
         pl->interweave_buf_size = 0;
+    }
+
+    // close the ao playing device
+    if (pl->dev) {
+        ao_close(pl->dev);
+        pl->dev = NULL;
     }
 }
 
@@ -339,30 +358,18 @@ int fm_player_open(fm_player_t *pl, fm_player_config_t *config)
 {
     pl->config = *config;
 
-    ao_sample_format ao_fmt;
-    ao_fmt.rate = config->rate;
-    ao_fmt.channels = config->channels;
-    // setting the bit rate to 16 for the time being
-    ao_fmt.bits = 16;
-    ao_fmt.byte_format = AO_FMT_NATIVE;
-    ao_fmt.matrix = 0;
-
-    int driver = ao_driver_id(config->driver);
-    if (driver == -1) {
+    pl->driver = ao_driver_id(config->driver);
+    if (pl->driver == -1) {
         return -1;
     }
 
-    ao_info *driver_info = ao_driver_info(driver);
+    ao_info *driver_info = ao_driver_info(pl->driver);
     printf("Player audio driver: %s\n", driver_info->name);
-    printf("Player sample rate: %d Hz\n", pl->config.rate);
-    ao_option *options = NULL;
+    pl->ao_options = NULL;
     if (config->dev[0] != '\0') {
-        ao_append_option(&options, "dev", config->dev);
+        ao_append_option(&pl->ao_options, "dev", config->dev);
     }
-    pl->dev = ao_open_live(driver, &ao_fmt, options);
-    ao_free_options(options);
-    if (pl->dev == NULL)
-        return -1;
+    pl->dev = NULL;
 
     pl->tid_ack = 0;
 
@@ -397,7 +404,8 @@ void fm_player_close(fm_player_t *pl)
 {
     fm_player_stop(pl);
 
-    ao_close(pl->dev);
+    if (pl->ao_options)
+        ao_free_options(pl->ao_options);
 
     pthread_mutex_destroy(&pl->mutex_status);
     pthread_cond_destroy(&pl->cond_play);

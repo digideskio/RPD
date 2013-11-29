@@ -31,7 +31,6 @@ echo "
 [Output]
 driver = alsa
 device = default
-rate = 44100
 
 [Server]
 address = 0.0.0.0

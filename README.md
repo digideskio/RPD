@@ -24,6 +24,8 @@ If you have `channel` setting in `fmd.conf`, remember to move it outside `[Douba
 
 The reason for this is that there are more channels now in addition to those from Douban.
 
+In addition, the sampling rate setting `rate = <rate>` is omitted from `[Output]` section because `ffmpeg` can automatically detect the sampling rate of the source audio and `libao` can then use that during playback.
+
 ## Requirements
 
 This version of `fmd` has the following dependencies:

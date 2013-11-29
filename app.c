@@ -309,7 +309,6 @@ int main() {
         .jing_rtoken = ""
     };
     fm_player_config_t player_conf = {
-        .rate = 44100,
         .channels = 2,
         .driver = "alsa",
         .dev = "default",
@@ -368,12 +367,6 @@ int main() {
             .section = "Output",
             .key = "device",
             .val.s = player_conf.dev
-        },
-        {
-            .type = FM_CONFIG_INT,
-            .section = "Output",
-            .key = "rate",
-            .val.i = &player_conf.rate
         },
         {
             .type = FM_CONFIG_STR,

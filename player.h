@@ -48,6 +48,10 @@ typedef struct {
 
 typedef struct fm_player {
     ao_device *dev;
+    // the options for the ao_player
+    ao_option *ao_options;
+    // the driver used for playback
+    int driver;
 
     // the current playing song; note that it can become a dangling pointer if the playlist frees that song
     // so make sure that the player is stopped first
