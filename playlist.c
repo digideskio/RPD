@@ -39,8 +39,13 @@ static void replace(char *str, char to_rep, char rep)
 static int get_file_path(char *buf, char *directory, char *artist, char *title, char *ext)
 {
     // if the artist or the title is unknown, we should report an error
-    if (title[0] == '\0' || artist[0] == '\0')
+    if (title[0] == '\0' || artist[0] == '\0') {
+        printf("Malformatted song information\n");
         return -1;
+    } else if (directory[0] == '\0') {
+        printf("Music directory not set\n");
+        return -2;
+    }
     replace(artist, '/', '|');
     replace(title, '/', '|');
     sprintf(buf, "%s/%s/%s.%s", directory, artist, title, ext);
@@ -322,7 +327,7 @@ static void fm_playlist_clear(fm_playlist_t *pl)
     pl->current = NULL;
 }
 
-void fm_playlist_init(fm_playlist_t *pl, fm_playlist_config_t *config, void (*fm_player_stop)())
+int fm_playlist_init(fm_playlist_t *pl, fm_playlist_config_t *config, void (*fm_player_stop)())
 {
     pl->history = NULL;
     pl->current = NULL;
@@ -336,8 +341,6 @@ void fm_playlist_init(fm_playlist_t *pl, fm_playlist_config_t *config, void (*fm
 
     pl->config = *config;
 
-    // set up the mode
-    fm_playlist_update_mode(pl);
     // set up the downloader stack
     pl->stack = stack_init();
     // wire up the player
@@ -350,6 +353,7 @@ void fm_playlist_init(fm_playlist_t *pl, fm_playlist_config_t *config, void (*fm
     pthread_mutex_init(&pl->mutex_current_download, NULL);
     pthread_mutex_init(&pl->mutex_song_downloader, NULL);
     pthread_cond_init(&pl->cond_song_download_restart, NULL);
+    return 0;
 }
 
 void fm_playlist_cleanup(fm_playlist_t *pl)
@@ -453,19 +457,24 @@ static void fm_playlist_curl_jing_config(fm_playlist_t *pl, CURL *curl, char act
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
 }
 
-void fm_playlist_update_mode(fm_playlist_t *pl)
+int fm_playlist_update_mode(fm_playlist_t *pl, char *channel)
 {
     char *address;
-    strtol(pl->config.channel, &address, 10);
+    strtol(channel, &address, 10);
     if (*address == '\0') {
         // this is valid number
-        if (strcmp(pl->config.channel, LOCAL_CHANNEL) == 0)
+        if (strcmp(channel, LOCAL_CHANNEL) == 0) {
+            if (pl->config.music_dir[0] == '\0') {
+                printf("Music directory is not set. Unable to use local channel.\n");
+                return -2;
+            }
             pl->mode = plLocal;
-        else
+        } else
             pl->mode = plDouban;
+        strcpy(pl->config.channel, channel);
     } else {
         pl->mode = plJing;
-        if (strcmp(pl->config.channel, JING_RAND_CHANNEL) == 0) {
+        if (strcmp(channel, JING_RAND_CHANNEL) == 0) {
             printf("Jing random natural language channel detected\n");
             // we need to retrieve a random keyword for jing
             downloader_t *d = stack_get_idle_downloader(pl->stack, dMem);
@@ -486,6 +495,7 @@ void fm_playlist_update_mode(fm_playlist_t *pl)
             stack_downloader_cleanup(pl->stack, d);
         }
     }
+    return 0;
 }
 
 static int fm_playlist_jing_parse_json(fm_playlist_t *pl, struct json_object *obj, fm_song_t **base)
@@ -876,9 +886,8 @@ static int fm_playlist_send_report(fm_playlist_t *pl, char act, fm_song_t **base
         printf("Some error occurred during the process; Maybe network is down. Output is %s\n", dl->content.mbuf->data);
         if (fallback) {
             printf("Trying again with local channel.\n");
-            strcpy(pl->config.channel, LOCAL_CHANNEL);
-            pl->mode = plLocal;
-            return fm_playlist_send_report(pl, act, base, clear_old, 0);
+            if (fm_playlist_update_mode(pl, LOCAL_CHANNEL) == 0)
+                return fm_playlist_send_report(pl, act, base, clear_old, 0);
         }
         return -1;
     }

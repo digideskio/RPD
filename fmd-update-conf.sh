@@ -35,4 +35,7 @@ device = default
 [Server]
 address = 0.0.0.0
 port = 10098
+
+[Local]
+music_dir = ~/Music
 "

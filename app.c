@@ -72,8 +72,9 @@ void app_client_handler(void *ptr, char *input, char *output)
     if (strcmp(cmd, "play") == 0) {
         if (app->player.status != FM_PLAYER_STOP || fm_player_set_song(&app->player, fm_playlist_current(&app->playlist)) == 0) {
             fm_player_play(&app->player);
-        }
-        get_fm_info(app, output);
+            get_fm_info(app, output);
+        } else 
+            sprintf(output, "{\"status\":\"error\",\"message\":\"Some errors occurred during the processing of the song\"}");
     }
     else if(strcmp(cmd, "stop") == 0) {
         fm_player_stop(&app->player);
@@ -87,26 +88,34 @@ void app_client_handler(void *ptr, char *input, char *output)
         switch (app->player.status) {
             case FM_PLAYER_PLAY:
                 fm_player_pause(&app->player);
+                get_fm_info(app, output);
                 break;
             case FM_PLAYER_PAUSE:
                 fm_player_play(&app->player);
+                get_fm_info(app, output);
                 break;
             case FM_PLAYER_STOP:
-                if (fm_player_set_song(&app->player, fm_playlist_current(&app->playlist)) == 0)
+                if (fm_player_set_song(&app->player, fm_playlist_current(&app->playlist)) == 0) {
                     fm_player_play(&app->player);
+                } else {
+                    sprintf(output, "{\"status\":\"error\",\"message\":\"Some errors occurred during the processing of the song\"}");
+                }  
                 break;
         }
-        get_fm_info(app, output);
     }
     else if(strcmp(cmd, "skip") == 0 || strcmp(cmd, "next") == 0) {
-        if (fm_player_set_song(&app->player, fm_playlist_skip(&app->playlist, 0)) == 0)
+        if (fm_player_set_song(&app->player, fm_playlist_skip(&app->playlist, 0)) == 0) {
             fm_player_play(&app->player);
-        get_fm_info(app, output);
+            get_fm_info(app, output);
+        } else
+            sprintf(output, "{\"status\":\"error\",\"message\":\"Some errors occurred during the processing of the song\"}");
     }
     else if(strcmp(cmd, "ban") == 0) {
-        if (fm_player_set_song(&app->player, fm_playlist_ban(&app->playlist)) == 0)
+        if (fm_player_set_song(&app->player, fm_playlist_ban(&app->playlist)) == 0) {
             fm_player_play(&app->player);
-        get_fm_info(app, output);
+            get_fm_info(app, output);
+        } else
+            sprintf(output, "{\"status\":\"error\",\"message\":\"Some errors occurred during the processing of the song\"}");
     }
     else if(strcmp(cmd, "rate") == 0) {
         fm_playlist_rate(&app->playlist);
@@ -128,12 +137,21 @@ void app_client_handler(void *ptr, char *input, char *output)
         }
         else {
             if (strcmp(arg, app->playlist.config.channel) != 0) {
-                strcpy(app->playlist.config.channel, arg);
-                fm_playlist_update_mode(&app->playlist);
-                if (fm_player_set_song(&app->player, fm_playlist_skip(&app->playlist, 1)) == 0)
+                int ret = fm_playlist_update_mode(&app->playlist, arg);
+                if (ret != 0) {
+                    char *message = "";
+                    switch (ret) {
+                        case -2: message = "Unable to set local channel because music directory is not set."; break;
+                        default: message = "Unable to set channel.";
+                    }
+                    sprintf(output, "{\"status\":\"error\",\"message\":\"%s\"}", message);
+                } else if (fm_player_set_song(&app->player, fm_playlist_skip(&app->playlist, 1)) == 0) {
                     fm_player_play(&app->player);
+                    get_fm_info(app, output);
+                } else {
+                    sprintf(output, "{\"status\":\"error\",\"message\":\"Some errors occurred during the processing of the song\"}");
+                }
             }
-            get_fm_info(app, output);
         }
     }
     else if(strcmp(cmd, "kbps") == 0) {
@@ -147,10 +165,13 @@ void app_client_handler(void *ptr, char *input, char *output)
             else {
                 if (strcmp(arg, app->playlist.config.kbps) != 0) {
                     strcpy(app->playlist.config.kbps, arg);
-                    if (fm_player_set_song(&app->player, fm_playlist_skip(&app->playlist, 0)) == 0)
+                    if (fm_player_set_song(&app->player, fm_playlist_skip(&app->playlist, 0)) == 0) {
                         fm_player_play(&app->player);
-                }
-                get_fm_info(app, output);
+                        get_fm_info(app, output);
+                    } else 
+                        sprintf(output, "{\"status\":\"error\",\"message\":\"Some errors occurred during the processing of the song\"}");
+                } else
+                    get_fm_info(app, output);
             }
         } else {
             sprintf(output, "{\"status\":\"error\",\"message\":\"Current channel does not support bitrate switch: %s\"}", input);
@@ -229,8 +250,10 @@ void daemonize(const char *log_file, const char *err_file)
 
 void player_end_handler(int sig)
 {
-    if (fm_player_set_song(&app.player, fm_playlist_next(&app.playlist)) == 0)
+    if (fm_player_set_song(&app.player, fm_playlist_next(&app.playlist)) == 0) {
         fm_player_play(&app.player);
+    } else
+        printf("Some errors occurred during the processing of the song\n");
 }
 
 void install_player_end_handler(fm_player_t *player)
@@ -259,6 +282,13 @@ int start_fmd(fm_playlist_config_t *playlist_conf, fm_player_config_t *player_co
     install_player_end_handler(&app.player);
 
     fm_playlist_init(&app.playlist, playlist_conf, stop_player);
+
+    int ret = fm_playlist_update_mode(&app.playlist, playlist_conf->channel);
+    switch (ret) {
+        case 0: break;
+        case -2: printf("Unable to set local channel because music directory is not set."); return ret;
+        default: printf("Unable to set channel."); return ret;
+    }
 
     if (fm_server_setup(&app.server) < 0) {
         perror("Server");
@@ -303,7 +333,7 @@ int main() {
         .douban_token = "",
         .expire = 0,
         .kbps = "",
-        .music_dir = "~/Music",
+        .music_dir = "",
         .jing_uid = 0,
         .jing_atoken = "",
         .jing_rtoken = ""
@@ -402,12 +432,14 @@ int main() {
     };
     fm_config_parse(config_file, configs, sizeof(configs) / sizeof(fm_config_t));
 
-    // need to process the directory and pass the arguments into the configs
-    wordexp_t exp_result;
-    wordexp(playlist_conf.music_dir, &exp_result, 0);
-    strcpy(playlist_conf.music_dir, exp_result.we_wordv[0]);
-    printf("The music dir path: %s\n", playlist_conf.music_dir);
+    if (playlist_conf.music_dir[0] != '\0') {
+        // need to process the directory and pass the arguments into the configs
+        wordexp_t exp_result;
+        wordexp(playlist_conf.music_dir, &exp_result, 0);
+        strcpy(playlist_conf.music_dir, exp_result.we_wordv[0]);
+        printf("The music dir path: %s\n", playlist_conf.music_dir);
 
-    wordfree(&exp_result);
+        wordfree(&exp_result);
+    }
     return start_fmd(&playlist_conf, &player_conf);
 }
