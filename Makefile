@@ -1,8 +1,14 @@
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
+FFMPEG_LIBS=    libavformat                        \
+                libavcodec                         \
+                libswresample                      \
+                libavutil                          \
 
-LIBS = -lcurl -ljson-c -lao -lpthread -lcrypto -libavdevice -libavformat -libavfilter -libavcodec -libswresample -libswscale -libavutil
-CFLAGS = -Wall
+CFLAGS += -Wall
+LIBS = -lcurl -ljson-c -lao -lpthread -lcrypto
+CFLAGS := $(shell pkg-config --cflags $(FFMPEG_LIBS)) $(CFLAGS)
+LIBS := $(shell pkg-config --libs $(FFMPEG_LIBS)) $(LIBS)
 
 all: fmd
 
