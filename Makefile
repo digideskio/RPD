@@ -1,7 +1,7 @@
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
 
-LIBS = -lcurl -ljson-c -lao -lpthread -lavcodec -lavutil -lavformat -lswresample -lcrypto
+LIBS = -lcurl -ljson-c -lao -lpthread -lavformat -lavcodec -lswresample -lavutil -lcrypto
 CFLAGS = -Wall
 
 all: fmd
