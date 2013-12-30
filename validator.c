@@ -1,6 +1,6 @@
 #include "validator.h"
 #include <sys/stat.h>
-#define FILESIZE_PASS_RATIO 0.95
+#define FILESIZE_PASS_RATIO 0.9
 
 void sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65])
 {

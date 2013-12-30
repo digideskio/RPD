@@ -1,0 +1,8 @@
+#!/bin/bash
+
+url="`curl -sG --connect-timeout 15 --data-urlencode "keyword=$1" "http://www.lrc123.com/" | grep -B1 '下载' | grep color | sed -n '1p' | sed 's/<[^>]*>//g;s/[[:space:]]//g'`"
+
+if [ -n "$url" ]; then
+    # download the lyrics
+    curl --connect-timeout 15 -s "$url" | iconv -f GBK
+fi

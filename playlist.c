@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#define INVALID_FILE_CHARS "<>:\"|?*/\\"
+
 static void song_downloader_stop(fm_playlist_t *pl, downloader_t *dl)
 {
     stack_downloader_stop(pl->stack, dl);
@@ -46,8 +48,13 @@ static int get_file_path(char *buf, char *directory, char *artist, char *title, 
         printf("Music directory not set\n");
         return -2;
     }
-    replace(artist, '/', '|');
-    replace(title, '/', '|');
+    // replace all the invalid characters
+    char *p = INVALID_FILE_CHARS;
+    while (*p != '\0') {
+        replace(artist, *p, ' ');
+        replace(title, *p, ' ');
+        p++;
+    }
     sprintf(buf, "%s/%s/%s.%s", directory, artist, title, ext);
     printf("The obtained file path is %s\n", buf);
     return 0;
@@ -96,6 +103,12 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                                     "mkdir -p \"$(dirname \"$dest\")\";"
                                     "mv -f \"$src\" \"$dest\";" 
                                     "mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" -c \"$tmpimg\" $datearg \"$dest\";"
+                                    // download the lyrics for the song
+                                    "lrc=\"${dest%%.*}.lrc\";"
+                                    "if ! [ -f \"$lrc\" ]; then "
+                                        "dlrc=\"`lrcdown \"$title ${artist//\\// }\"`\";"
+                                        "[ -n \"$dlrc\" ] && echo \"$dlrc\" > \"$lrc\";"
+                                    "fi;"
                                 "else "
                                     "rm -f \"$src\";"
                                 "fi;"
