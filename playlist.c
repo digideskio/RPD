@@ -104,11 +104,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                                     "mv -f \"$src\" \"$dest\";" 
                                     "mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" -c \"$tmpimg\" $datearg \"$dest\";"
                                     // download the lyrics for the song
-                                    "lrc=\"${dest%%.*}.lrc\";"
-                                    "if ! [ -f \"$lrc\" ]; then "
-                                        "dlrc=\"`lrcdown \"$title ${artist//\\// }\"`\";"
-                                        "[ -n \"$dlrc\" ] && echo \"$dlrc\" > \"$lrc\";"
-                                    "fi;"
+                                    "lrcdown \"$title ${artist//\\// }\" \"${dest%%.*}.lrc\";"
                                 "else "
                                     "rm -f \"$src\";"
                                 "fi;"
