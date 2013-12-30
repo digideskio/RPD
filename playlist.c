@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #define INVALID_FILE_CHARS "<>:\"|?*/\\"
+#define INVALID_FILE_CHARS_REP "[] '&  &&"
 
 static void song_downloader_stop(fm_playlist_t *pl, downloader_t *dl)
 {
@@ -50,10 +51,12 @@ static int get_file_path(char *buf, char *directory, char *artist, char *title, 
     }
     // replace all the invalid characters
     char *p = INVALID_FILE_CHARS;
+    char *r = INVALID_FILE_CHARS_REP;
     while (*p != '\0') {
-        replace(artist, *p, ' ');
-        replace(title, *p, ' ');
+        replace(artist, *p, *r);
+        replace(title, *p, *r);
         p++;
+        r++;
     }
     sprintf(buf, "%s/%s/%s.%s", directory, artist, title, ext);
     printf("The obtained file path is %s\n", buf);
