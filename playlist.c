@@ -86,7 +86,10 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
             // must make sure that the tmp file exists and the dest file does not exist
             if (stat(song->filepath, &sts) == 0) {
                 char lp[256];
-                if (get_file_path(lp, pl->config.music_dir, song->artist, song->title, song->ext) == 0) {
+                // test if the music is already in the music folder; if yes then no need to do anything then
+                if (strncmp(song->filepath, pl->config.music_dir, strlen(pl->config.music_dir)) == 0)
+                    to_remove = 0;
+                else if (get_file_path(lp, pl->config.music_dir, song->artist, song->title, song->ext) == 0) {
                     if (strcmp(song->filepath, lp) == 0)
                         to_remove = 0;
                     else if (validate(&song->validator, song->filepath) && stat(lp, &sts) == -1 && errno == ENOENT) {
