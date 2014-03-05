@@ -55,7 +55,7 @@ void get_fm_info(fm_app_t *app, char *output)
                     fm_player_length(&app->player));
             break;
         case FM_PLAYER_STOP:
-            sprintf(output, "{\"status\":\"stop\",\"kbps\":%s,\"channel\":\"%s\",\"user\":\"%s\"}",
+            sprintf(output, "{\"status\":\"stop\",\"kbps\":\"%s\",\"channel\":\"%s\",\"user\":\"%s\"}",
                     app->playlist.config.kbps,app->playlist.config.channel, app->playlist.config.uname);
             break;
         default:

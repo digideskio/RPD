@@ -94,7 +94,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                         to_remove = 0;
                     else if (validate(&song->validator, song->filepath) && stat(lp, &sts) == -1 && errno == ENOENT) {
                         to_remove = 0;
-                        printf("Attemping to cache the song for path %s\n", lp);
+                        printf("Attempting to cache the song for path %s\n", lp);
                         // first move the file to a secure location to avoid it being truncated later
                         char cmd[3072], btp[256], bart[128], btitle[128], balb[128], blp[256], bcover[128], burl[128]; 
                         sprintf(cmd, 
@@ -172,9 +172,22 @@ static fm_song_t *fm_song_douban_parse_json(fm_playlist_t *pl, struct json_objec
     sprintf(song->url, "%s%s", DOUBAN_MUSIC_WEBSITE, json_object_get_string(json_object_object_get(obj, "album")));
     song->like = json_object_get_int(json_object_object_get(obj, "like"));
     strcpy(song->ext, "mp3");
-    strcpy(song->kbps, json_object_get_string(json_object_object_get(obj, "kbps")));
+    struct json_object *kbps_obj = json_object_object_get(obj, "kbps");
+    if (json_object_get_string_len(kbps_obj) == 0)
+        strcpy(song->kbps, pl->config.kbps);
+    else
+        strcpy(song->kbps, json_object_get_string(kbps_obj));
     song->length = json_object_get_int(json_object_object_get(obj, "length"));
-    validator_sha256_init(&song->validator, json_object_get_string(json_object_object_get(obj, "sha256")));
+    struct json_object *sha_obj = json_object_object_get(obj, "sha256");
+    if (json_object_get_string_len(sha_obj) == 0) {
+        char *address;
+        int conv = strtol(song->kbps, &address, 10);
+        if (*address == '\0') 
+            validator_filesize_init(&song->validator, conv * song->length * 1000 / 8);
+        else
+            validator_init(&song->validator);
+    } else
+        validator_sha256_init(&song->validator, json_object_get_string(sha_obj));
     // check if we can substitute the audio field with a local path
     if (get_file_path(song->filepath, pl->config.music_dir, song->artist, song->title, song->ext) == 0 && validate(&song->validator, song->filepath)) {
         printf("Detected local audio file for song %s/%s. Using the file directly instead of downloading.\n", song->artist, song->title);
@@ -710,7 +723,10 @@ static void fm_playlist_curl_douban_config(fm_playlist_t *pl, CURL *curl, char a
         case 'r': case 'u': case 'e':
             break;
         default:
-            sprintf(opt_arg, "&h=%s&kbps=%s", fm_playlist_history_str(pl), pl->config.kbps);
+            if (pl->config.kbps[0] == '\0') 
+                sprintf(opt_arg, "&h=%s", fm_playlist_history_str(pl));
+            else
+                sprintf(opt_arg, "&h=%s&kbps=%s", fm_playlist_history_str(pl), pl->config.kbps);
     }
     printf("Playlist send report: %d:%c\n", pl->config.douban_uid, act);
     sprintf(url, "%s?app_name=%s&version=%s&user_id=%d&expire=%d&token=%s&channel=%s&sid=%d&type=%c%s",
