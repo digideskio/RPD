@@ -141,7 +141,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
 
 static int valid_song_url(char *url)
 {
-    return strncmp(url, "http://", 7) == 0;
+    return strncmp(url, "http", 4) == 0;
 }
 
 static fm_song_t *song_init(fm_playlist_t *pl)
@@ -360,8 +360,8 @@ int fm_playlist_init(fm_playlist_t *pl, fm_playlist_config_t *config, void (*fm_
     pl->history = NULL;
     pl->current = NULL;
 
-    pl->douban_api = "http://www.douban.com/j/app/radio/people";
-    pl->douban_channel_api = "http://www.douban.com/j/app/radio/channels";
+    pl->douban_api = "https://www.douban.com/j/app/radio/people";
+    pl->douban_channel_api = "https://www.douban.com/j/app/radio/channels";
     pl->app_name = "radio_desktop_win";
     pl->version = "100";
 

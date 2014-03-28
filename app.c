@@ -192,7 +192,7 @@ void app_client_handler(void *ptr, char *input, char *output)
                     // first obtain a curl instance to escape the query
                     downloader_t *d = stack_get_idle_downloader(app->playlist.stack, dAny);
                     char *st = curl_easy_escape(d->curl, url, 0);
-                    sprintf(url, "http://music.douban.com/subject_search?search_text=%s&cat=1003", st);
+                    sprintf(url, "https://music.douban.com/subject_search?search_text=%s&cat=1003", st);
                     curl_free(st);
                 }
                 printf("url is %s\n", url);
