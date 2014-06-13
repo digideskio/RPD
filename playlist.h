@@ -67,6 +67,7 @@ typedef struct {
 
     // local mode
     char music_dir[128];
+    int download_lyrics;
 
     // jing mode
     int jing_uid;

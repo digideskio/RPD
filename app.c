@@ -334,6 +334,7 @@ int main() {
         .expire = 0,
         .kbps = "",
         .music_dir = "",
+        .download_lyrics = 0,
         .jing_uid = 0,
         .jing_atoken = "",
         .jing_rtoken = ""
@@ -385,6 +386,12 @@ int main() {
             .section = "Local",
             .key = "music_dir",
             .val.s = playlist_conf.music_dir
+        },
+        {
+            .type = FM_CONFIG_INT,
+            .section = "Local",
+            .key = "download_lyrics",
+            .val.i = &playlist_conf.download_lyrics
         },
         {
             .type = FM_CONFIG_STR,

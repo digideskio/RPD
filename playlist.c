@@ -110,7 +110,7 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                                     "mv -f \"$src\" \"$dest\";" 
                                     "mutagen -a \"$artist\" -A \"$album\" -t \"$title\" -r \"$page_url\" -c \"$tmpimg\" $datearg \"$dest\";"
                                     // download the lyrics for the song
-                                    "lrcdown \"$title ${artist//\\// }\" \"${dest%%.*}.lrc\";"
+                                    "(( '%d' == 1 )) && lrcdown \"$title ${artist//\\// }\" \"${dest%%.*}.lrc\";"
                                 "else "
                                     "rm -f \"$src\";"
                                 "fi;"
@@ -122,7 +122,8 @@ static void fm_song_free(fm_playlist_t *pl, fm_song_t *song)
                                 escapesh(balb, song->album), 
                                 song->pubdate,
                                 escapesh(burl, song->url),
-                                escapesh(blp, lp));
+                                escapesh(blp, lp),
+                                pl->config.download_lyrics);
                         printf("Move and tag command: %s\n", cmd);
                         system(cmd);
                     }                                                                   
