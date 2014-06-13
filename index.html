@@ -1,198 +1,212 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Fmd by hzqtc</title>
+    <meta name="viewport" content="width=640" />
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <script src="javascripts/scale.fix.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+    <link rel="stylesheet" href="stylesheets/core.css" media="screen"/>
+    <link rel="stylesheet" href="stylesheets/mobile.css" media="handheld, only screen and (max-device-width:640px)"/>
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css"/>
+
+    <script type="text/javascript" src="javascripts/modernizr.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" src="javascripts/headsmart.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function () {
+        $('#main_content').headsmart()
+      })
+    </script>
+    <title>Fmd by lynnard</title>
   </head>
+
   <body>
-    <div class="wrapper">
+    <a id="forkme_banner" href="https://github.com/lynnard/fmd">View on GitHub</a>
+    <div class="shell">
+
       <header>
-        <h1 class="header">Fmd</h1>
-        <p class="header">Douban FM Daemon (inspired by Music Player Daemon)</p>
-
-        <ul>
-          <li class="download"><a class="buttons" href="https://github.com/hzqtc/fmd/zipball/master">Download ZIP</a></li>
-          <li class="download"><a class="buttons" href="https://github.com/hzqtc/fmd/tarball/master">Download TAR</a></li>
-          <li><a class="buttons github" href="https://github.com/hzqtc/fmd">View On GitHub</a></li>
-        </ul>
-
-        <p class="header">This project is maintained by <a class="header name" href="https://github.com/hzqtc">hzqtc</a></p>
-
-
+        <span class="ribbon-outer">
+          <span class="ribbon-inner">
+            <h1>Fmd</h1>
+            <h2>Stream radio to command line with ease and comfort</h2>
+          </span>
+          <span class="left-tail"></span>
+          <span class="right-tail"></span>
+        </span>
       </header>
-      <section>
-        <h1>FMD (Douban FM Daemon)</h1>
 
-<p>FMD stands for Douban FM Daemon, inspired by MPD (Music Player Daemon). FMD plays music from Douban FM in background and communicate with clients through TCP connections.</p>
+      <section id="downloads">
+        <span class="inner">
+          <a href="https://github.com/lynnard/fmd/zipball/master" class="zip"><em>download</em> .ZIP</a><a href="https://github.com/lynnard/fmd/tarball/master" class="tgz"><em>download</em> .TGZ</a>
+        </span>
+      </section>
 
-<h2>Config</h2>
 
-<p>The main config file is <code>~/.fmd/fmd.conf</code>. Config file includes several sections.</p>
+      <span class="banner-fix"></span>
 
-<p>In <code>DoubanFM</code> section, there are the following config items:</p>
 
-<pre><code>channel [int]   # Douban FM Channel id
-uid [string]    # Douban FM user id
-uname [string]  # Douban FM user name
-token [string]  # Douban FM authorization token
-expire [string] # token expire time
-</code></pre>
+      <section id="main_content">
+        <h1>
+<a name="fmd-internet-radio-service-daemon" class="anchor" href="#fmd-internet-radio-service-daemon"><span class="octicon octicon-link"></span></a>FMD (Internet Radio Service Daemon)</h1>
 
-<p>To get a complete channel list, try:</p>
+<p>This is a fork from the original <a href="https://github.com/hzqtc/fmd">FMD</a>. The aim of this fork is to provide more advanced features.</p>
 
-<pre><code>wget -q -O - "http://www.douban.com/j/app/radio/channels" | json_pp
-</code></pre>
+<h2>
+<a name="architectural-differences" class="anchor" href="#architectural-differences"><span class="octicon octicon-link"></span></a>Architectural differences</h2>
 
-<p>To get your own <code>uid</code>, <code>uname</code>, <code>token</code> and <code>expire</code>, try:</p>
+<h3>
+<a name="decoder" class="anchor" href="#decoder"><span class="octicon octicon-link"></span></a>Decoder</h3>
 
-<pre><code>wget -q -O - --post-data="email=[email]&amp;password=[passwd]&amp;app_name=radio_desktop_win&amp;version=100" "http://www.douban.com/j/app/login"
-</code></pre>
+<p>This version of <code>fmd</code> uses <code>ffmpeg</code> instead of <code>mpg123</code> to decode music. The rational is to support more audio formats e.g. <code>m4a</code>.</p>
 
-<p>Replace <code>[email]</code> and <code>[passwd]</code> with your douban account and password.</p>
+<h3>
+<a name="network-transfer" class="anchor" href="#network-transfer"><span class="octicon octicon-link"></span></a>Network transfer</h3>
 
-<p>In <code>Output</code> section, there are the following config items:</p>
+<p>Improving on the original model, this version uses a multi-threaded downloading framework to pull content from network. At any time when streaming music from an online service, multiple instances of <code>curl</code> keep running and caching songs until the queue becomes empty (the default number of song downloaders is 2 but you can change that number in the source file).</p>
 
-<pre><code>driver [string] # audio output driver, default is "alsa"
-device [string] # audio output device, can be omitted
-rate [int]      # audio ouput rate, default to 44100
-</code></pre>
+<p>A negativity here is that when the program first starts pulling songs it's relatively slow, since the additional downloaders will take away bandwidth for the first song. However, this will be subsequently complemented by smoother music playing in all following songs. (Or you can simply change the number of assigned song downloaders to 1 to avoid this problem)</p>
 
-<p>As FMD uses <a href="http://xiph.org/ao">libao</a> for audio output, users may found it useful to refer to <a href="http://www.xiph.org/ao/doc/drivers.html">libao's driver document</a> when deciding which driver to use. For example, users of PulseAudio should change the <code>Output</code> section to:</p>
+<h2>
+<a name="configuration-changes" class="anchor" href="#configuration-changes"><span class="octicon octicon-link"></span></a>Configuration changes</h2>
 
-<pre><code>[Output]
-driver = pulse
-device = 0
-rate = 44100
-</code></pre>
+<p>If you have <code>channel</code> setting in <code>fmd.conf</code>, remember to move it outside <code>[DoubanFM]</code> and put it under <code>[Radio]</code> instead like this</p>
 
-<p>And for Mac users:</p>
-
-<pre><code>[Output]
-driver = macosx
-device =
-rate = 44100
-</code></pre>
-
-<p>In <code>Server</code> section, there are the following config items:</p>
-
-<pre><code>address [string]# server listen address, default to "localhost"
-port [int]      # server listen port, default to 10098
-</code></pre>
-
-<p>Please create a config file before using FMD. A sample config file is:</p>
-
-<pre><code>[DoubanFM]
+<pre><code>[Radio]
 channel = 0
-uid = 123456
-uname = username
-token = 1234abcd
-expire = 1345000000
-
-[Output]
-driver = alsa
-device = default
-rate = 44100
-
-[Server]
-address = localhost
-port = 10098
 </code></pre>
 
-<h2>Commands</h2>
+<p>The reason for this is that there are more channels now in addition to those from Douban.</p>
 
-<p>The communication between FMD and clients go throught TCP connection.</p>
+<p>In addition, the sampling rate setting <code>rate = &lt;rate&gt;</code> is omitted from <code>[Output]</code> section because <code>ffmpeg</code> can automatically detect the sampling rate of the source audio and <code>libao</code> can then use that during playback.</p>
 
-<p>Commands client can send are <code>play</code>, <code>stop</code>, <code>pause</code>, <code>toggle</code>, <code>skip</code>, <code>ban</code>, <code>rate</code>, <code>unrate</code>, <code>info</code> and <code>end</code>.</p>
+<h2>
+<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h2>
+
+<p>This version of <code>fmd</code> has the following dependencies:</p>
 
 <ul>
 <li>
-<code>play</code>: start playing</li>
+<code>ffmpeg</code> for music decoding</li>
 <li>
-<code>stop</code>: stop playing, and set play position to 0:00</li>
+<code>libao</code> for music playing</li>
 <li>
-<code>pause</code>: stop playing</li>
+<code>libcurl</code> for api calls and music downloading</li>
 <li>
-<code>toggle</code>: toggle between playing and pause</li>
+<code>json-c</code> for json parsing</li>
 <li>
-<code>skip</code>: skip current song</li>
+<code>openssl</code> for validating cached songs using sha256</li>
 <li>
-<code>ban</code>: mark current song as "dislike"</li>
-<li>
-<code>rate</code>: mark current song as "like"</li>
-<li>
-<code>unrate</code>: unmark current song</li>
-<li>
-<code>info</code>: simply get FMD info</li>
-<li>
-<code>end</code>: tell FMD to exit</li>
-</ul><p><strong>Note</strong>: The recommand way to exit FMD is <code>killall fmd</code>. Because the <code>end</code> command must be sent from the client and will left the FMD port in wait-close for several minutes, during which time new FMD instance cannot bind to the port.</p>
+<code>mutagen</code> for local music tagging</li>
+<li>my mutagen <a href="mutagen">frontend</a> for accessing the useful functions from <code>mutagen</code>
+</li>
+</ul><h2>
+<a name="local-music-channel--red-heart-channel" class="anchor" href="#local-music-channel--red-heart-channel"><span class="octicon octicon-link"></span></a>Local music channel / Red-Heart channel</h2>
 
-<h2>Protocol</h2>
+<h3>
+<a name="configuration" class="anchor" href="#configuration"><span class="octicon octicon-link"></span></a>Configuration</h3>
 
-<p>FMD responses to all commands except <code>end</code>, the reponse is a json string containing current FMD infomation.</p>
+<p>To configure the local music channel simply put this in your <code>fmd.conf</code></p>
 
-<pre><code>{
-   "len" : 0,
-   "sid" : 967698,
-   "status" : "play",
-   "channel" : 0,
-   "like" : 0,
-   "artist" : "花儿乐队",
-   "album" : "幸福的旁边",
-   "cover" : "http://img1.douban.com/mpic/s4433542.jpg",
-   "url" : "/subject/1404476/",
-   "user" : "小强",
-   "pos" : 5,
-   "title" : "别骗我",
-   "year" : 1999
-}
+<pre><code>[Local]
+music_dir = {default value: ~/Music}
 </code></pre>
 
-<p>The simplest FMD client is telnet:</p>
+<p>The local channel comes with id <code>999</code> and if you also use my fork of <a href="https://github.com/lynnard/fmc">FMC</a>, it will display the channel name as the name of the current login user. All files of mimetype <code>audio/*</code> within the <code>music_dir</code> are added randomly to the playlist.</p>
 
-<pre><code>telnet localhost 10098
-Trying ::1...
-Connection failed: Connection refused
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-info
-{"status":"play","channel":0,"user":"小强","title":"What's My Name (Intro #1)","artist":"Rihanna / Drake", "album":"Promo Only Rhythm...","year":2010,"cover":"http://img1.douban.com/mpic/s4615061.jpg","url":"/subject/5951920/","sid":1561924,"like":0,"pos":107,"len":254}
-toggle
-{"status":"pause","channel":0,"user":"小强","title":"What's My Name (Intro #1)","artist":"Rihanna / Drake", "album":"Promo Only Rhythm...","year":2010,"cover":"http://img1.douban.com/mpic/s4615061.jpg","url":"/subject/5951920/","sid":1561924,"like":0,"pos":111,"len":254}
-toggle
-{"status":"play","channel":0,"user":"小强","title":"What's My Name (Intro #1)","artist":"Rihanna / Drake", "album":"Promo Only Rhythm...","year":2010,"cover":"http://img1.douban.com/mpic/s4615061.jpg","url":"/subject/5951920/","sid":1561924,"like":0,"pos":111,"len":254}
-help
-{"status":"error","message":"wrong command: help"}
+<h3>
+<a name="like" class="anchor" href="#like"><span class="octicon octicon-link"></span></a>Like</h3>
+
+<p>By default all music is <code>liked</code>. If you unrate a song, the action would be the same as <code>ban</code>.</p>
+
+<h3>
+<a name="ban" class="anchor" href="#ban"><span class="octicon octicon-link"></span></a>Ban</h3>
+
+<p>The song will be removed from your disk. In addition, if it's enclosed in some directory that becomes empty, that directory is removed as well.</p>
+
+<p>The local music channel is also the fall-back channel if network becomes unavailable i.e. when <code>fmd</code> is unable to retrieve any playlists from online channels.</p>
+
+<p>Aside from these things the local channel is almost identical to any online channel.</p>
+
+<h2>
+<a name="jingfm" class="anchor" href="#jingfm"><span class="octicon octicon-link"></span></a>Jing.fm</h2>
+
+<h3>
+<a name="configuration-1" class="anchor" href="#configuration-1"><span class="octicon octicon-link"></span></a>Configuration</h3>
+
+<p>You need to first have a <a href="http://jing.fm">Jing.fm</a> account. Then run this line at the command line, replacing <code>&lt;email&gt;</code> and <code>&lt;password&gt;</code> accordingly.</p>
+
+<pre><code>$ curl -i -d'email=&lt;email&gt;' -d'pwd=&lt;password&gt;' 'http://jing.fm/api/v1/sessions/create'
 </code></pre>
 
-<p><a href="https://github.com/hzqtc/fmc">FMC</a> is a command line client for FMD.</p>
+<p>Copy down your userid (buried inside the JSON response <code>result.usr.id</code>), Jing-A-Token-Header and Jing-R-Token-Header and put them into your <code>fmd.conf</code></p>
 
-<h2>Install</h2>
-
-<p>FMD is written in C and depends on <code>libcurl</code> (for api calls and music downloading), <code>json-c</code> (for API parsing), <code>mpg123</code> (for music decoding) and <code>libao</code> (for music playing).</p>
-
-<p>Currently, there is no binary distribution for this project. So compile from source is the only option. FMD has been tested on Linux and Mac OS X 10.7.</p>
-
-<pre><code>git clone https://github.com/hzqtc/fmd.git
-cd fmd
-make release
+<pre><code>[JingFM]
+atoken = &lt;Jing-A-Token-Header&gt;
+rtoken = &lt;Jing-R-Token-Header&gt;
+uid = &lt;uid&gt;
 </code></pre>
+
+<h3>
+<a name="channels" class="anchor" href="#channels"><span class="octicon octicon-link"></span></a>Channels</h3>
+
+<p>To start a Jing.fm channel, simply use the old command <code>setch &lt;string&gt;</code>. While any integer value will be interpreted as a Douban channel, all other strings will be seen as queries into Jing.fm. For example:</p>
+
+<pre><code>fmc setch '周杰伦'
+</code></pre>
+
+<p>will start a new Jing.fm channel on 周杰伦.</p>
+
+<p>In addition, some channels are <em>special</em> </p>
+
+<ul>
+<li>
+<code>#top</code>: this is identical to listening to music from the 音乐瀑布 on the official webpage</li>
+<li>
+<code>#rand</code>: this will start a random channel using a trending search term (which is the same as the 'suggestion' function on the official webpage)</li>
+<li>
+<code>#psn</code>: this starts Jing's personal recommendation channel</li>
+</ul><h3>
+<a name="like--ban" class="anchor" href="#like--ban"><span class="octicon octicon-link"></span></a>Like &amp; Ban</h3>
+
+<p>These actions are identical to those used with Douban channels from the user point of view. But of course now the data is sent to jing.fm instead.</p>
+
+<h2>
+<a name="music-caching" class="anchor" href="#music-caching"><span class="octicon octicon-link"></span></a>Music Caching</h2>
+
+<p>All played and liked songs will be saved to <code>music_dir</code> (as specified in the <a href="#local">Local</a> section) in <code>artist/title.&lt;ext&gt;</code> format. The ID3 tags (for <code>m4a</code>, iTunes-style tags) will be saved along as well. The cover image, when downloadable, will be downloaded and embedded into the song.</p>
+
+<h2>
+<a name="more-fine-grained-infomation" class="anchor" href="#more-fine-grained-infomation"><span class="octicon octicon-link"></span></a>More fine-grained infomation</h2>
+
+<p>The <code>info</code> command will now also give back the <code>kbps</code> rate of the current song. This can be different depending on each song.</p>
+
+<h2>
+<a name="more-commands" class="anchor" href="#more-commands"><span class="octicon octicon-link"></span></a>More commands</h2>
+
+<p>A few more commands are added in this fork. They include</p>
+
+<ul>
+<li>
+<code>kbps &lt;bitrate&gt;</code>: on-the-fly switching of music quality</li>
+<li>
+<code>webpage</code>: opens the douban music page for the current song using the browser specified in the shell variable <code>$BROWSER</code>; if the page url is not available e.g. for Jing.fm channels, it will open the search page on douban music</li>
+</ul>
       </section>
+
       <footer>
-        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+        <span class="ribbon-outer">
+          <span class="ribbon-inner">
+            <p>this project by <a href="https://github.com/lynnard">lynnard</a> can be found on <a href="https://github.com/lynnard/fmd">GitHub</a></p>
+          </span>
+          <span class="left-tail"></span>
+          <span class="right-tail"></span>
+        </span>
+        <p>Generated with <a href="http://pages.github.com">GitHub Pages</a> using Merlot</p>
+        <span class="octocat"></span>
       </footer>
+
     </div>
-    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-		
+
+    
   </body>
 </html>
