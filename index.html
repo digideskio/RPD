@@ -17,17 +17,17 @@
         $('#main_content').headsmart()
       })
     </script>
-    <title>Fmd by lynnard</title>
+    <title>RPD by lynnard</title>
   </head>
 
   <body>
-    <a id="forkme_banner" href="https://github.com/lynnard/fmd">View on GitHub</a>
+    <a id="forkme_banner" href="https://github.com/lynnard/RPD">View on GitHub</a>
     <div class="shell">
 
       <header>
         <span class="ribbon-outer">
           <span class="ribbon-inner">
-            <h1>Fmd</h1>
+            <h1>RPD</h1>
             <h2>Stream radio to command line with ease and comfort</h2>
           </span>
           <span class="left-tail"></span>
@@ -37,7 +37,7 @@
 
       <section id="downloads">
         <span class="inner">
-          <a href="https://github.com/lynnard/fmd/zipball/master" class="zip"><em>download</em> .ZIP</a><a href="https://github.com/lynnard/fmd/tarball/master" class="tgz"><em>download</em> .TGZ</a>
+          <a href="https://github.com/lynnard/RPD/zipball/master" class="zip"><em>download</em> .ZIP</a><a href="https://github.com/lynnard/RPD/tarball/master" class="tgz"><em>download</em> .TGZ</a>
         </span>
       </section>
 
@@ -47,42 +47,30 @@
 
       <section id="main_content">
         <h1>
-<a name="fmd-internet-radio-service-daemon" class="anchor" href="#fmd-internet-radio-service-daemon"><span class="octicon octicon-link"></span></a>FMD (Internet Radio Service Daemon)</h1>
+<a name="rpd-radio-player-daemon" class="anchor" href="#rpd-radio-player-daemon"><span class="octicon octicon-link"></span></a>RPD (Radio Player Daemon)</h1>
 
-<p>This is a fork from the original <a href="https://github.com/hzqtc/fmd">FMD</a>. The aim of this fork is to provide more advanced features.</p>
+<p><a href="http://rpd.lynnard.tk">RPD</a> is a fork from <a href="https://github.com/hzqtc/fmd">FMD</a> that aims to provide more advanced features</p>
 
-<h2>
-<a name="architectural-differences" class="anchor" href="#architectural-differences"><span class="octicon octicon-link"></span></a>Architectural differences</h2>
+<ul>
+<li>Support for a wide variety of audio formats</li>
+<li>Multi-threaded music streaming</li>
+<li>Support for natural language music search engine <a href="http://jing.fm">Jing.fm</a> in addition to the popular <a href="http://douban.fm">Douban.fm</a>
+</li>
+<li>
+<a href="#automatic-music-download">Automatic music download/tagging</a> for liked songs</li>
+<li>More <a href="#commands">commands</a>, including changing bitrates on the fly</li>
+<li>Playing local songs via <a href="#local%20channel">local channel</a>
+</li>
+</ul><p>RPD uses a TCP server-client model similar to that in FMD and MPD:</p>
+
+<ul>
+<li>you run <code>rpd</code> to launch the radio daemon that listens on a specific port</li>
+<li>then in any terminal you can use <code>rpc</code> to access and control the daemon you just now launched</li>
+</ul><h2>
+<a name="install" class="anchor" href="#install"><span class="octicon octicon-link"></span></a>Install</h2>
 
 <h3>
-<a name="decoder" class="anchor" href="#decoder"><span class="octicon octicon-link"></span></a>Decoder</h3>
-
-<p>This version of <code>fmd</code> uses <code>ffmpeg</code> instead of <code>mpg123</code> to decode music. The rational is to support more audio formats e.g. <code>m4a</code>.</p>
-
-<h3>
-<a name="network-transfer" class="anchor" href="#network-transfer"><span class="octicon octicon-link"></span></a>Network transfer</h3>
-
-<p>Improving on the original model, this version uses a multi-threaded downloading framework to pull content from network. At any time when streaming music from an online service, multiple instances of <code>curl</code> keep running and caching songs until the queue becomes empty (the default number of song downloaders is 2 but you can change that number in the source file).</p>
-
-<p>A negativity here is that when the program first starts pulling songs it's relatively slow, since the additional downloaders will take away bandwidth for the first song. However, this will be subsequently complemented by smoother music playing in all following songs. (Or you can simply change the number of assigned song downloaders to 1 to avoid this problem)</p>
-
-<h2>
-<a name="configuration-changes" class="anchor" href="#configuration-changes"><span class="octicon octicon-link"></span></a>Configuration changes</h2>
-
-<p>If you have <code>channel</code> setting in <code>fmd.conf</code>, remember to move it outside <code>[DoubanFM]</code> and put it under <code>[Radio]</code> instead like this</p>
-
-<pre><code>[Radio]
-channel = 0
-</code></pre>
-
-<p>The reason for this is that there are more channels now in addition to those from Douban.</p>
-
-<p>In addition, the sampling rate setting <code>rate = &lt;rate&gt;</code> is omitted from <code>[Output]</code> section because <code>ffmpeg</code> can automatically detect the sampling rate of the source audio and <code>libao</code> can then use that during playback.</p>
-
-<h2>
-<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h2>
-
-<p>This version of <code>fmd</code> has the following dependencies:</p>
+<a name="dependencies" class="anchor" href="#dependencies"><span class="octicon octicon-link"></span></a>Dependencies</h3>
 
 <ul>
 <li>
@@ -94,24 +82,154 @@ channel = 0
 <li>
 <code>json-c</code> for json parsing</li>
 <li>
-<code>openssl</code> for validating cached songs using sha256</li>
+<code>openssl</code> for validating downloaded songs using sha256</li>
 <li>
-<code>mutagen</code> for local music tagging</li>
-<li>my mutagen <a href="mutagen">frontend</a> for accessing the useful functions from <code>mutagen</code>
-</li>
-</ul><h2>
-<a name="local-music-channel--red-heart-channel" class="anchor" href="#local-music-channel--red-heart-channel"><span class="octicon octicon-link"></span></a>Local music channel / Red-Heart channel</h2>
+<a href="https://github.com/lynnard/mutagen-CLI">mutagen-CLI</a> for manipulating music ID3 tags</li>
+</ul><h3>
+<a name="steps" class="anchor" href="#steps"><span class="octicon octicon-link"></span></a>Steps</h3>
+
+<ol>
+<li>clone the repo somewhere</li>
+<li>
+<code>cd</code> into the directory</li>
+<li><code>make</code></li>
+</ol><p>Note: you would almost certainly want to also install <a href="https://github.com/lynnard/RPC" title="RPC">RPC</a> to access and control the daemon. Follow the instruction there to finish installing <code>rpc</code>.</p>
 
 <h3>
 <a name="configuration" class="anchor" href="#configuration"><span class="octicon octicon-link"></span></a>Configuration</h3>
 
-<p>To configure the local music channel simply put this in your <code>fmd.conf</code></p>
+<p>By default, the configuration file resides in <code>~/.rpd/rpd.conf</code>.</p>
 
-<pre><code>[Local]
-music_dir = {default value: ~/Music}
+<p>A template config file looks like this</p>
+
+<pre><code>[Radio]
+channel = 999
+
+[DoubanFM]
+uid = &lt;uid&gt;
+uname = &lt;username&gt;
+token = &lt;token&gt;
+expire = &lt;expire&gt;
+kbps = 
+
+[JingFM]
+uid = &lt;uid&gt;
+atoken = &lt;atoken&gt;
+rtoken = &lt;rtoken&gt;
+
+[Output]
+driver = alsa
+device = default
+
+[Server]
+address = 0.0.0.0
+port = 10098
+
+[Local]
+music_dir = ~/Music
+download_lyrics = 0
 </code></pre>
 
-<p>The local channel comes with id <code>999</code> and if you also use my fork of <a href="https://github.com/lynnard/fmc">FMC</a>, it will display the channel name as the name of the current login user. All files of mimetype <code>audio/*</code> within the <code>music_dir</code> are added randomly to the playlist.</p>
+<ul>
+<li>
+<code>channel</code> under <code>[Radio]</code>: determines the default channel on startup; <code>999</code> is the <a href="#local_channel">local music channel</a>
+</li>
+<li>
+<code>kbps</code> under <code>[DoubanFM]</code> is only applicable for paid users (who have access to <code>128</code> and <code>192</code> bitrates); leave it blank if you are using the free service</li>
+<li>
+<code>[Local]</code>
+
+<ul>
+<li>
+<code>music_dir</code>: where to store the downloaded songs</li>
+<li>
+<code>download_lyrics</code>: change it to 1 if you wish to download lyrics automatically using <a href="https://github.com/lynnard/rpdlrc">lrcdown</a> </li>
+</ul>
+</li>
+</ul><p>To simplify the process of obtaining the user ids and tokens for the two services, you should use the <code>rpc-update-conf.sh</code> included in the repository. </p>
+
+<p>Make sure you set the usernames and passwords in the file, and then you can put something like this in your crontab to periodically update the configuration (since the tokens change from time to time)</p>
+
+<pre><code>0 0 */3 * * rpd-update-conf.sh &gt; ~/.rpd/rpd.conf
+</code></pre>
+
+<h2>
+<a name="commands" class="anchor" href="#commands"><span class="octicon octicon-link"></span></a>Commands</h2>
+
+<p>To communicate with RPD, the client should make a TCP connection to the designated port in the configuration.</p>
+
+<p>A client can make the following requests:</p>
+
+<ul>
+<li>
+<code>play</code>: start playing</li>
+<li>
+<code>stop</code>: stop playing</li>
+<li>
+<code>pause</code>: pause playing</li>
+<li>
+<code>toggle</code>: toggle between play and pause</li>
+<li>
+<code>skip</code>: skip to the next song</li>
+<li>
+<code>rate</code>: like the song</li>
+<li>
+<code>unrate</code>: unlike the song</li>
+<li>
+<code>ban</code>: dislike the song</li>
+<li>
+<code>info</code>: get song information</li>
+<li>
+<code>setch &lt;channel&gt;</code>: switch to the given radio channel
+
+<ul>
+<li>if <code>&lt;channel</code> is <code>999</code>, use the <a href="#local-channel">local music channel</a>
+</li>
+<li>if <code>&lt;channel&gt;</code> is an integer, than use the corresponding channel from Douban.fm</li>
+<li>otherwise search for <code>&lt;channel&gt;</code> on Jing.fm
+
+<ul>
+<li>e.g., <code>setch Adele</code> starts playing music from Adele</li>
+<li>there are also some special channels for Jing.fm
+
+<ul>
+<li>
+<code>#top</code>: the hottest music right now</li>
+<li>
+<code>#rand</code>: this will start a random channel using a trending search term</li>
+<li>
+<code>#psn</code>: this starts Jing's personal recommendation channel (making use of your like and dislike data)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<code>kbps &lt;bitrate&gt;</code>: on-the-fly switching of music quality</li>
+<li>
+<code>webpage</code>: opens the douban music page for the current song using the browser specified in the shell variable <code>$BROWSER</code>; if the page url is not available e.g. for Jing.fm channels, it will open the search page on douban music</li>
+<li>
+<code>end</code>: tell RPD to exit</li>
+</ul><p>The response is in JSON format and normally contains all the information about the currently playing song.</p>
+
+<p>Note: if you installed <code>rpc</code> as I recommended before, you can easily use these commands as <code>rpc &lt;command&gt;</code>.</p>
+
+<h2>
+<a name="automatic-music-download" class="anchor" href="#automatic-music-download"><span class="octicon octicon-link"></span></a>Automatic music download</h2>
+
+<p>All played and liked songs will be saved to <code>music_dir</code> in <code>artist/title.&lt;ext&gt;</code> format. </p>
+
+<p>The ID3 tags (for <code>m4a</code>, iTunes-style tags) will be saved along as well. </p>
+
+<p>The cover image, when downloadable, will be downloaded and embedded into the song.</p>
+
+<p>If you've turned on <code>download_lyrics</code>, and have installed <a href="https://github.com/lynnard/rpdlrc">lrcdown</a>, then the lyrics will be downloaded as <code>artist/title.lrc</code> in the same directory.</p>
+
+<h2>
+<a name="local-channel" class="anchor" href="#local-channel"><span class="octicon octicon-link"></span></a>Local channel</h2>
+
+<p>The local channel has the id <code>999</code>. When switching to this channel, RPD retrieves all files of mimetype <code>audio/*</code> within the <code>music_dir</code>, shuffles them and make up its playlist.</p>
 
 <h3>
 <a name="like" class="anchor" href="#like"><span class="octicon octicon-link"></span></a>Like</h3>
@@ -123,80 +241,21 @@ music_dir = {default value: ~/Music}
 
 <p>The song will be removed from your disk. In addition, if it's enclosed in some directory that becomes empty, that directory is removed as well.</p>
 
-<p>The local music channel is also the fall-back channel if network becomes unavailable i.e. when <code>fmd</code> is unable to retrieve any playlists from online channels.</p>
-
-<p>Aside from these things the local channel is almost identical to any online channel.</p>
-
 <h2>
-<a name="jingfm" class="anchor" href="#jingfm"><span class="octicon octicon-link"></span></a>Jing.fm</h2>
-
-<h3>
-<a name="configuration-1" class="anchor" href="#configuration-1"><span class="octicon octicon-link"></span></a>Configuration</h3>
-
-<p>You need to first have a <a href="http://jing.fm">Jing.fm</a> account. Then run this line at the command line, replacing <code>&lt;email&gt;</code> and <code>&lt;password&gt;</code> accordingly.</p>
-
-<pre><code>$ curl -i -d'email=&lt;email&gt;' -d'pwd=&lt;password&gt;' 'http://jing.fm/api/v1/sessions/create'
-</code></pre>
-
-<p>Copy down your userid (buried inside the JSON response <code>result.usr.id</code>), Jing-A-Token-Header and Jing-R-Token-Header and put them into your <code>fmd.conf</code></p>
-
-<pre><code>[JingFM]
-atoken = &lt;Jing-A-Token-Header&gt;
-rtoken = &lt;Jing-R-Token-Header&gt;
-uid = &lt;uid&gt;
-</code></pre>
-
-<h3>
-<a name="channels" class="anchor" href="#channels"><span class="octicon octicon-link"></span></a>Channels</h3>
-
-<p>To start a Jing.fm channel, simply use the old command <code>setch &lt;string&gt;</code>. While any integer value will be interpreted as a Douban channel, all other strings will be seen as queries into Jing.fm. For example:</p>
-
-<pre><code>fmc setch '周杰伦'
-</code></pre>
-
-<p>will start a new Jing.fm channel on 周杰伦.</p>
-
-<p>In addition, some channels are <em>special</em> </p>
+<a name="related-work" class="anchor" href="#related-work"><span class="octicon octicon-link"></span></a>Related work</h2>
 
 <ul>
 <li>
-<code>#top</code>: this is identical to listening to music from the 音乐瀑布 on the official webpage</li>
+<a href="https://github.com/lynnard/RPC" title="RPC">RPC</a>: RPD client</li>
 <li>
-<code>#rand</code>: this will start a random channel using a trending search term (which is the same as the 'suggestion' function on the official webpage)</li>
-<li>
-<code>#psn</code>: this starts Jing's personal recommendation channel</li>
-</ul><h3>
-<a name="like--ban" class="anchor" href="#like--ban"><span class="octicon octicon-link"></span></a>Like &amp; Ban</h3>
-
-<p>These actions are identical to those used with Douban channels from the user point of view. But of course now the data is sent to jing.fm instead.</p>
-
-<h2>
-<a name="music-caching" class="anchor" href="#music-caching"><span class="octicon octicon-link"></span></a>Music Caching</h2>
-
-<p>All played and liked songs will be saved to <code>music_dir</code> (as specified in the <a href="#local">Local</a> section) in <code>artist/title.&lt;ext&gt;</code> format. The ID3 tags (for <code>m4a</code>, iTunes-style tags) will be saved along as well. The cover image, when downloadable, will be downloaded and embedded into the song.</p>
-
-<h2>
-<a name="more-fine-grained-infomation" class="anchor" href="#more-fine-grained-infomation"><span class="octicon octicon-link"></span></a>More fine-grained infomation</h2>
-
-<p>The <code>info</code> command will now also give back the <code>kbps</code> rate of the current song. This can be different depending on each song.</p>
-
-<h2>
-<a name="more-commands" class="anchor" href="#more-commands"><span class="octicon octicon-link"></span></a>More commands</h2>
-
-<p>A few more commands are added in this fork. They include</p>
-
-<ul>
-<li>
-<code>kbps &lt;bitrate&gt;</code>: on-the-fly switching of music quality</li>
-<li>
-<code>webpage</code>: opens the douban music page for the current song using the browser specified in the shell variable <code>$BROWSER</code>; if the page url is not available e.g. for Jing.fm channels, it will open the search page on douban music</li>
+<a href="https://github.com/lynnard/rpclrc">rpclrc</a>: lyrics display</li>
 </ul>
       </section>
 
       <footer>
         <span class="ribbon-outer">
           <span class="ribbon-inner">
-            <p>this project by <a href="https://github.com/lynnard">lynnard</a> can be found on <a href="https://github.com/lynnard/fmd">GitHub</a></p>
+            <p>this project by <a href="https://github.com/lynnard">lynnard</a> can be found on <a href="https://github.com/lynnard/RPD">GitHub</a></p>
           </span>
           <span class="left-tail"></span>
           <span class="right-tail"></span>
