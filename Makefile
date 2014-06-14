@@ -14,15 +14,15 @@ LIBS = -lpthread
 CFLAGS := $(shell pkg-config --cflags $(ALL_LIBS)) $(CFLAGS)
 LIBS := $(shell pkg-config --libs $(ALL_LIBS)) $(LIBS)
 
-all: fmd
+all: rpd
 
 debug: CFLAGS += -g
-debug: fmd
+debug: rpd
 
 release: CFLAGS += -O2
-release: fmd
+release: rpd
 
-fmd: ${OBJ}
+rpd: ${OBJ}
 	gcc ${CFLAGS} -o $@ $^ ${LIBS}
 
 %.o: %.c

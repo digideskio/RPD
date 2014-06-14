@@ -38,4 +38,5 @@ port = 10098
 
 [Local]
 music_dir = ~/Music
+download_lyrics = 0
 "

@@ -312,17 +312,17 @@ int main() {
     char err_file[MAX_DIR_LEN];
 
     strcpy(fmd_dir, pwd->pw_dir);
-    strcat(fmd_dir, "/.fmd");
+    strcat(fmd_dir, "/.rpd");
     mkdir(fmd_dir, DIR_MODE);
 
     strcpy(config_file, pwd->pw_dir);
-    strcat(config_file, "/.fmd/fmd.conf");
+    strcat(config_file, "/.rpd/rpd.conf");
 
     strcpy(log_file, pwd->pw_dir);
-    strcat(log_file, "/.fmd/fmd.log");
+    strcat(log_file, "/.rpd/rpd.log");
 
     strcpy(err_file, pwd->pw_dir);
-    strcat(err_file, "/.fmd/fmd.err");
+    strcat(err_file, "/.rpd/rpd.err");
 
     daemonize(log_file, err_file);
 

@@ -7,7 +7,7 @@ static int tmp_count = 0;
 
 static void get_tmp_filepath(char *filepath)
 {
-    sprintf(filepath, "/tmp/fmctmp%d", tmp_count++);
+    sprintf(filepath, "/tmp/rpdtmp%d", tmp_count++);
 }
 
 static void downloader_curl_reset(downloader_t *dl)

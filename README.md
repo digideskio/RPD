@@ -1,53 +1,129 @@
-# FMD (Internet Radio Service Daemon)
+# RPD (Radio Player Daemon)
 
-This is a fork from the original [FMD](https://github.com/hzqtc/fmd). The aim of this fork is to provide more advanced features.
+[RPD](http://rpd.lynnard.tk) is a fork from [FMD](https://github.com/hzqtc/fmd) that aims to provide more advanced features
 
-## Architectural differences
+* Support for a wide variety of audio formats
+* Multi-threaded music streaming
+* Support for natural language music search engine [Jing.fm](http://jing.fm) in addition to the popular [Douban.fm](http://douban.fm)
+* [Automatic music download/tagging](#automatic-music-download) for liked songs
+* More [commands](#commands), including changing bitrates on the fly
+* Playing local songs via [local channel](#local channel)
 
-### Decoder
+RPD uses a TCP server-client model similar to that in FMD and MPD:
 
-This version of `fmd` uses `ffmpeg` instead of `mpg123` to decode music. The rational is to support more audio formats e.g. `m4a`.
+* you run `rpd` to launch the radio daemon that listens on a specific port
+* then in any terminal you can use `rpc` to access and control the daemon you just now launched
 
-### Network transfer
+## Install
 
-Improving on the original model, this version uses a multi-threaded downloading framework to pull content from network. At any time when streaming music from an online service, multiple instances of `curl` keep running and caching songs until the queue becomes empty (the default number of song downloaders is 2 but you can change that number in the source file).
-
-A negativity here is that when the program first starts pulling songs it's relatively slow, since the additional downloaders will take away bandwidth for the first song. However, this will be subsequently complemented by smoother music playing in all following songs. (Or you can simply change the number of assigned song downloaders to 1 to avoid this problem)
-
-
-## Configuration changes
-
-If you have `channel` setting in `fmd.conf`, remember to move it outside `[DoubanFM]` and put it under `[Radio]` instead like this
-
-    [Radio]
-    channel = 0
-
-The reason for this is that there are more channels now in addition to those from Douban.
-
-In addition, the sampling rate setting `rate = <rate>` is omitted from `[Output]` section because `ffmpeg` can automatically detect the sampling rate of the source audio and `libao` can then use that during playback.
-
-## Requirements
-
-This version of `fmd` has the following dependencies:
+### Dependencies
 
 * `ffmpeg` for music decoding
 * `libao` for music playing
 * `libcurl` for api calls and music downloading
 * `json-c` for json parsing
-* `openssl` for validating cached songs using sha256
-* `mutagen` for local music tagging
-* my mutagen [frontend](mutagen) for accessing the useful functions from `mutagen`
+* `openssl` for validating downloaded songs using sha256
+* [mutagen-CLI](https://github.com/lynnard/mutagen-CLI) for manipulating music ID3 tags
 
-## <a id="local"></a>Local music channel / Red-Heart channel
+### Steps
+
+1. clone the repo somewhere
+2. `cd` into the directory
+3. `make`
+
+Note: you would almost certainly want to also install [RPC][RPC] to access and control the daemon. Follow the instruction there to finish installing `rpc`.
 
 ### Configuration
 
-To configure the local music channel simply put this in your `fmd.conf`
+By default, the configuration file resides in `~/.rpd/rpd.conf`.
+
+A template config file looks like this
+
+    [Radio]
+    channel = 999
+
+    [DoubanFM]
+    uid = <uid>
+    uname = <username>
+    token = <token>
+    expire = <expire>
+    kbps = 
+
+    [JingFM]
+    uid = <uid>
+    atoken = <atoken>
+    rtoken = <rtoken>
+
+    [Output]
+    driver = alsa
+    device = default
+
+    [Server]
+    address = 0.0.0.0
+    port = 10098
 
     [Local]
-    music_dir = {default value: ~/Music}
+    music_dir = ~/Music
+    download_lyrics = 0
 
-The local channel comes with id `999` and if you also use my fork of [FMC](https://github.com/lynnard/fmc), it will display the channel name as the name of the current login user. All files of mimetype `audio/*` within the `music_dir` are added randomly to the playlist.
+
+* `channel` under `[Radio]`: determines the default channel on startup; `999` is the [local music channel](#local_channel)
+* `kbps` under `[DoubanFM]` is only applicable for paid users (who have access to `128` and `192` bitrates); leave it blank if you are using the free service
+* `[Local]`
+    * `music_dir`: where to store the downloaded songs
+    * `download_lyrics`: change it to 1 if you wish to download lyrics automatically using [lrcdown](https://github.com/lynnard/rpdlrc) 
+
+To simplify the process of obtaining the user ids and tokens for the two services, you should use the `rpc-update-conf.sh` included in the repository. 
+
+Make sure you set the usernames and passwords in the file, and then you can put something like this in your crontab to periodically update the configuration (since the tokens change from time to time)
+
+    0 0 */3 * * rpd-update-conf.sh > ~/.rpd/rpd.conf
+
+## Commands
+
+To communicate with RPD, the client should make a TCP connection to the designated port in the configuration.
+
+A client can make the following requests:
+
+* `play`: start playing
+* `stop`: stop playing
+* `pause`: pause playing
+* `toggle`: toggle between play and pause
+* `skip`: skip to the next song
+* `rate`: like the song
+* `unrate`: unlike the song
+* `ban`: dislike the song
+* `info`: get song information
+* `setch <channel>`: switch to the given radio channel
+    * if `<channel` is `999`, use the [local music channel](#local-channel)
+    * if `<channel>` is an integer, than use the corresponding channel from Douban.fm
+    * otherwise search for `<channel>` on Jing.fm
+        * e.g., `setch Adele` starts playing music from Adele
+        * there are also some special channels for Jing.fm
+            * `#top`: the hottest music right now
+            * `#rand`: this will start a random channel using a trending search term
+            * `#psn`: this starts Jing's personal recommendation channel (making use of your like and dislike data)
+* `kbps <bitrate>`: on-the-fly switching of music quality
+* `webpage`: opens the douban music page for the current song using the browser specified in the shell variable `$BROWSER`; if the page url is not available e.g. for Jing.fm channels, it will open the search page on douban music
+* `end`: tell RPD to exit
+
+The response is in JSON format and normally contains all the information about the currently playing song.
+
+Note: if you installed `rpc` as I recommended before, you can easily use these commands as `rpc <command>`.
+
+## Automatic music download
+
+All played and liked songs will be saved to `music_dir` in `artist/title.<ext>` format. 
+
+The ID3 tags (for `m4a`, iTunes-style tags) will be saved along as well. 
+
+The cover image, when downloadable, will be downloaded and embedded into the song.
+
+If you've turned on `download_lyrics`, and have installed [lrcdown](https://github.com/lynnard/rpdlrc), then the lyrics will be downloaded as `artist/title.lrc` in the same directory.
+
+## Local channel
+
+The local channel has the id `999`. When switching to this channel, RPD retrieves all files of mimetype `audio/*` within the `music_dir`, shuffles them and make up its playlist.
 
 ### Like
 
@@ -57,55 +133,9 @@ By default all music is `liked`. If you unrate a song, the action would be the s
 
 The song will be removed from your disk. In addition, if it's enclosed in some directory that becomes empty, that directory is removed as well.
 
-The local music channel is also the fall-back channel if network becomes unavailable i.e. when `fmd` is unable to retrieve any playlists from online channels.
+## Related work
 
-Aside from these things the local channel is almost identical to any online channel.
+* [RPC][RPC]: RPD client
+* [rpclrc](https://github.com/lynnard/rpclrc): lyrics display
 
-## Jing.fm
-
-### Configuration
-
-You need to first have a [Jing.fm](http://jing.fm) account. Then run this line at the command line, replacing `<email>` and `<password>` accordingly.
-
-    $ curl -i -d'email=<email>' -d'pwd=<password>' 'http://jing.fm/api/v1/sessions/create'
-
-Copy down your userid (buried inside the JSON response `result.usr.id`), Jing-A-Token-Header and Jing-R-Token-Header and put them into your `fmd.conf`
-
-    [JingFM]
-    atoken = <Jing-A-Token-Header>
-    rtoken = <Jing-R-Token-Header>
-    uid = <uid>
-
-### Channels
-
-To start a Jing.fm channel, simply use the old command `setch <string>`. While any integer value will be interpreted as a Douban channel, all other strings will be seen as queries into Jing.fm. For example:
-
-    fmc setch '周杰伦'
-
-will start a new Jing.fm channel on 周杰伦.
-
-In addition, some channels are *special* 
-
-* `#top`: this is identical to listening to music from the 音乐瀑布 on the official webpage
-* `#rand`: this will start a random channel using a trending search term (which is the same as the 'suggestion' function on the official webpage)
-* `#psn`: this starts Jing's personal recommendation channel
-
-### Like & Ban
-
-These actions are identical to those used with Douban channels from the user point of view. But of course now the data is sent to jing.fm instead.
-
-## Music Caching
-
-All played and liked songs will be saved to `music_dir` (as specified in the [Local](#local) section) in `artist/title.<ext>` format. The ID3 tags (for `m4a`, iTunes-style tags) will be saved along as well. The cover image, when downloadable, will be downloaded and embedded into the song.
-
-## More fine-grained infomation
-
-The `info` command will now also give back the `kbps` rate of the current song. This can be different depending on each song.
-
-## More commands
-
-A few more commands are added in this fork. They include
-
-* `kbps <bitrate>`: on-the-fly switching of music quality
-* `webpage`: opens the douban music page for the current song using the browser specified in the shell variable `$BROWSER`; if the page url is not available e.g. for Jing.fm channels, it will open the search page on douban music
-
+[RPC]: https://github.com/lynnard/RPC "RPC"

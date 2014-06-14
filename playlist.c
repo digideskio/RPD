@@ -1,7 +1,7 @@
 #include "playlist.h"
 #include "util.h"
 
-#include <json/json.h>
+#include <json-c/json.h>
 
 #include <stdio.h>
 #include <stdlib.h>
