@@ -137,5 +137,6 @@ The song will be removed from your disk. In addition, if it's enclosed in some d
 
 * [RPC][RPC]: RPD client
 * [rpclrc](https://github.com/lynnard/rpclrc): lyrics display
+* [RPD-Alfred](https://github.com/lynnard/RPD-Alfred): Alfred extension interfacing [RPC][RPC]
 
 [RPC]: https://github.com/lynnard/RPC "RPC"
