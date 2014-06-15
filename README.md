@@ -123,7 +123,7 @@ If you've turned on `download_lyrics`, and have installed [lrcdown](https://gith
 
 ## Local channel
 
-The local channel has the id `999`. When switching to this channel, RPD retrieves all files of mimetype `audio/*` within the `music_dir`, shuffles them and make up its playlist.
+The local channel has the id `999`. When switching to this channel, RPD retrieves all files of mimetype `audio/*` within the `music_dir` and shuffles them to make up its playlist.
 
 ### Like
 
