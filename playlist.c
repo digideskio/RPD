@@ -15,6 +15,8 @@
 #define INVALID_FILE_CHARS "<>:\"|?*/\\"
 #define INVALID_FILE_CHARS_REP "[] '&  &&"
 
+#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+
 static void song_downloader_stop(fm_playlist_t *pl, downloader_t *dl)
 {
     stack_downloader_stop(pl->stack, dl);
@@ -170,7 +172,12 @@ static fm_song_t *fm_song_douban_parse_json(fm_playlist_t *pl, struct json_objec
     char *c = strstr(song->cover, "mpic");
     if (c)
         *c = 'l';
-    sprintf(song->url, "%s%s", DOUBAN_MUSIC_WEBSITE, json_object_get_string(json_object_object_get(obj, "album")));
+    const char *url_info = json_object_get_string(json_object_object_get(obj, "album"));
+    if (valid_song_url(song->url)) {
+        strcpy(song->url, url_info);
+    } else {
+        sprintf(song->url, "%s%s", DOUBAN_MUSIC_WEBSITE, url_info);
+    }
     song->like = json_object_get_int(json_object_object_get(obj, "like"));
     strcpy(song->ext, "mp3");
     struct json_object *kbps_obj = json_object_object_get(obj, "kbps");
@@ -408,7 +415,8 @@ static int fm_playlist_douban_parse_json(fm_playlist_t *pl, struct json_object *
         printf("Douban playlist parsing new API response\n");
         array_list *songs = json_object_get_array(json_object_object_get(obj, "song"));
         printf("parsed song\n");
-        for (i = songs->length - 1; i >= 0; i--) {
+        int number_of_songs_to_download = MIN(songs->length, N_MAX_DOUBAN_SONGS_DOWNLOAD) - 1;
+        for (i = number_of_songs_to_download; i >= 0; i--) {
             struct json_object *o = (struct json_object*) array_list_get_idx(songs, i);
             fm_song_t *song = fm_song_douban_parse_json(pl, o);
             fm_playlist_push_front(base, song);
@@ -629,7 +637,7 @@ static int fm_playlist_local_dump_parse_report(fm_playlist_t *pl, fm_song_t **ba
     sprintf(buf,
             "export LC_ALL=en_US.UTF-8;"
             "IFS='\n';"
-            "args=($(find $'%s' -type f -mmin +2 -print0 | xargs -0 file -iF'\t' | fgrep audio | cut -d'\t' -f1 | shuf | head -n '%d'));"
+            "args=($(find $'%s' -type f -mmin +2 \\( -name '*.mp3' -o -name '*.m4a' \\) | gshuf | head -n '%d'));"
             "mutagen -f '{path}\n{title}\n{artist}\n{wors}\n{album}\n{year}\n{kbps}\n{len}' \"${args[@]}\";"
             , pl->config.music_dir, N_LOCAL_CHANNEL_FETCH);
     printf("Local channel refilling command is: %s\n", buf);
@@ -758,6 +766,8 @@ static int song_downloader_init(fm_playlist_t *pl, downloader_t *dl, int recycle
             curl_easy_setopt(dl->curl, CURLOPT_URL, s->audio);
             printf("File path %s is copied to the song\n", dl->content.fbuf->filepath);
             strcpy(s->filepath, dl->content.fbuf->filepath);
+            curl_easy_setopt(dl->curl, CURLOPT_LOW_SPEED_LIMIT, 5000);
+            curl_easy_setopt(dl->curl, CURLOPT_LOW_SPEED_TIME, 15);
             s->downloader = dl;
             dl->data = s;
             pl->current_download = &s->next;
@@ -905,15 +915,16 @@ static int fm_playlist_send_report(fm_playlist_t *pl, char act, fm_song_t **base
     }
     pthread_mutex_unlock(&pl->mutex_current_download);
 
+    if (reset_current) {
+        // signal the condition
+        pthread_cond_signal(&pl->cond_song_download_restart);
+        // we should reset the stop flag to 0; because at this stage the download thread should definitely go on
+        pthread_mutex_lock(&pl->mutex_song_download_stop);
+        pl->song_download_stop = 0;
+        pthread_mutex_unlock(&pl->mutex_song_download_stop);
+    }  
+
     if (ret == 0) {
-        if (reset_current) {
-            // signal the condition
-            pthread_cond_signal(&pl->cond_song_download_restart);
-            // we should reset the stop flag to 0; because at this stage the download thread should definitely go on
-            pthread_mutex_lock(&pl->mutex_song_download_stop);
-            pl->song_download_stop = 0;
-            pthread_mutex_unlock(&pl->mutex_song_download_stop);
-        }  
         printf("Starting song downloaders\n");
         song_downloader_all_start(pl);
     } else {
@@ -962,7 +973,7 @@ static void fm_playlist_next_on_link(fm_playlist_t *pl)
     pthread_mutex_unlock(&pl->mutex_current_download);
 
     fm_song_free(pl, curr);
-    // starts caching when there are two songs left
+    // starts caching when the threshold is reached
     fm_song_t **ef = playlist_end_in_number(&pl->current, PLAYLIST_REFILL_THRESHOLD);
     if (ef) {
         printf("Playlist going to terminate in %d hops, request more\n", PLAYLIST_REFILL_THRESHOLD);

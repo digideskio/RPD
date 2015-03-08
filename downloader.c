@@ -16,7 +16,11 @@ static void downloader_curl_reset(downloader_t *dl)
     curl_easy_setopt(dl->curl, CURLOPT_PRIVATE, dl);
     curl_easy_setopt(dl->curl, CURLOPT_WRITEDATA, dl);
     // set a default timeout; otherwise it can be too much delay
-    curl_easy_setopt(dl->curl, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_easy_setopt(dl->curl, CURLOPT_CONNECTTIMEOUT, 5);
+    // set the timeout for low speed limit
+    // set the low speed to a low value as sometimes when it's just retrieving playlist, etc. the size is small
+    curl_easy_setopt(dl->curl, CURLOPT_LOW_SPEED_LIMIT, 5);
+    curl_easy_setopt(dl->curl, CURLOPT_LOW_SPEED_TIME, 10);
 }
 
 // init the downloader by setting all the relevant fields
@@ -191,6 +195,7 @@ downloader_stack_t *stack_init()
     stack->size = 0;
     stack->downloaders = (downloader_t **) malloc(DEFAULT_N_DOWNLOADERS * sizeof(downloader_t *));
     stack->multi_handle = curl_multi_init();
+    /* curl_multi_setopt(stack->multi_handle, CURLMOPT_MAX_HOST_CONNECTIONS, 2); */
     pthread_mutex_init(&stack->mutex_op_download, NULL);
     pthread_mutex_init(&stack->mutex_op_init, NULL);
     pthread_mutex_init(&stack->mutex_elem, NULL);

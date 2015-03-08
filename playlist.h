@@ -9,10 +9,13 @@
 #define JING_TOP_CHANNEL "#top"
 #define JING_RAND_CHANNEL "#rand"
 #define JING_PSN_CHANNEL "#psn"
-// out of them 1 is used for emergency (when all downloaders are downloading
+// out of them 1 is used for emergency (when all downloaders are downloading)
 #define N_SONG_DOWNLOADERS 2
+#define N_MAX_DOUBAN_SONGS_DOWNLOAD 3
 #define N_LOCAL_CHANNEL_FETCH 25
-#define PLAYLIST_REFILL_THRESHOLD 3
+// a threshold of 1 means that there will at least be one songs in the list AFTER the player takes the next song
+// or: it only begins downloading new songs when there is no song after the current one
+#define PLAYLIST_REFILL_THRESHOLD 2
 #define DOUBAN_MUSIC_WEBSITE "http://music.douban.com"
 #define N_JING_CHANNEL_FETCH 5
 
